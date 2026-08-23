@@ -41,10 +41,21 @@ of Shift — then Keyman never learns that you let go.
 Keyman keeps its own private note of which modifiers you are holding. That note is
 now wrong, and **nothing ever checks it against reality**. From then on, every
 single keystroke gets "Shift" helpfully re-applied, because Keyman still believes
-your finger is on it.
+your finger is on it. It does that by pressing Shift for real, so Windows itself
+ends up believing your finger is on Shift too.
 
 That is the whole bug: Keyman missed one key-release while it was busy, and it
 never notices the mistake.
+
+**Two things make this worse than it first appears** (both measured — see §3):
+
+- Keyman keeps that note **even when you are not using a Keyman keyboard at all.**
+  So the damage can be done silently while you are typing on an ordinary Windows
+  keyboard, and only appears the moment you switch back to your Keyman one. This
+  is why it so often seems to break "on switching keyboards" for no reason.
+- Nothing about your keyboard layout is at fault. A Microsoft-built clone of the
+  very same Cameroon keyboard, typing the very same keys, comes through perfectly
+  in the same conditions that corrupt Keyman.
 
 ### Why slow and heavily loaded machines are worse
 
@@ -114,6 +125,21 @@ Windows enforces `LowLevelHooksTimeout` (`HKCU\Control Panel\Desktop`). A hook
 that does not return in time is bypassed and may be evicted. Keyman therefore
 **never sees that KEYUP at all**.
 
+**3a. The modifier post is NOT gated on a Keyman keyboard being active.**
+
+```
+k32_lowlevelkeyboardhook.cpp:198-201   if (isModifierKey(vkCode) && flag_ShouldSerializeInput)
+                                         PostMessage(..., WM_KEYMAN_MODIFIER_EVENT, ...)
+k32_lowlevelkeyboardhook.cpp:233       if (... || !isKeymanKeyboardActive) -> pass through
+```
+
+The post at `:198` precedes the `isKeymanKeyboardActive` check at `:233` by 35
+lines and does not consult it. So the cache is updated for **every modifier
+keystroke on the machine**, regardless of which keyboard is active, while it is
+only *consumed* when a Keyman keyboard is active. This is why the bug can be
+charged invisibly on a Microsoft keyboard and fire on switching back — measured
+3/3 in §3.
+
 **4. The cached modifier state is write-only, and never re-validated.**
 
 ```
@@ -146,17 +172,23 @@ keys arrive as `WM_SYSKEYDOWN` and are eaten as menu accelerators.
 ### Reproduction
 
 `kmhunt.ps1` — probe, one action, probe. Behavioural oracle, **case-sensitive**.
+For the controlled three-keyboard version, and the numbers actually worth
+quoting, use `kmproof.ps1` and see §3.
 
 | candidate | modifier | keyman.exe blocked? | observed |
 |---|---|---|---|
 | **A** (control) | LShift held 1.5 s, released | no | clean |
 | **B** | LShift held, released *into* the block | yes | **wedged** |
-| **I** | as B, but block confirmed live first | yes | see reliability note |
+| **I** | as B, but block confirmed live first | yes | **wedged 3/3** via `kmproof.ps1 -ChargeTest` (§3) |
 
 ```powershell
 cd D:\Github\_Projects\_KM\kmrepro
 powershell -ExecutionPolicy Bypass -File .\kmhunt.ps1 -Only A,B -Repeat 3
 ```
+
+Note `kmhunt.ps1` measures one keyboard at a time and so cannot, on its own,
+attribute the wedge to Keyman rather than to the layout, to Windows or to the
+harness. That is what `kmproof.ps1` was written for.
 
 Wedged signature: `;e` + RAlt+N yields `əŊ` (U+0259 **U+014A**) instead of `əŋ`
 (U+0259 **U+014B**); in the fuller form, `:EŊ` — Shift applied to everything.
@@ -174,11 +206,14 @@ that thread for ~1 s.
 wedged **3/3 at 22:32** and **0/3 at 22:58** on the same command with the freeze
 verified landing (WM_NULL round-trip 4747 ms, same pid, same hwnd). The cause was
 almost certainly the two-Cameroon-keyboards confound below: the clean runs had
-drifted onto the **Microsoft** layout, where the wedge is unreachable by
-construction. The trigger is believed deterministic when the **Keyman** keyboard
-is genuinely active — but that has not yet been demonstrated with a trustworthy
-active-keyboard check in place, so treat the rate as unverified rather than
-proven.
+drifted onto the **Microsoft** layout, where the wedge is charged but **cannot be
+observed** — the probe reads clean because the corrupted state is Keyman's and
+Keyman is not producing the output. (The original wording here said "unreachable
+by construction". That was wrong; see §3.)
+
+**Now demonstrated.** With a trustworthy active-keyboard check in place
+(focus-thread HKL, §3), candidate I is **3/3 deterministic**, and the paired
+control with no freeze is 0/10. The rate is no longer unverified.
 
 Two confounders, the second now understood:
 
@@ -188,67 +223,86 @@ Two confounders, the second now understood:
    for the block to be confirmed live (`WaitForFreeze`) to remove this; it was
    0/4 on its first outing, so this is not the whole story.
 2. **There are two Cameroon keyboards on this machine** — the Keyman TIP
-   (langid `0x2000`) and a Microsoft/MSKLC layout. **Both map `;e` -> U+0259**, so
-   the behavioural check cannot distinguish them, and Win+Space cycling lands on
-   either. On a non-Keyman layout Keyman *passes keys through* rather than
-   swallowing them (`k32_lowlevelkeyboardhook.cpp:229-240`,
-   `!isKeymanKeyboardActive`), so such a trial is a different experiment
-   altogether. `kmhunt.ps1` now logs the langid on every trial; **earlier results
-   predate that and are therefore unattributable.** Re-run before trusting any
-   rate.
+   (langid `0x2000`) and a Microsoft/MSKLC layout (langid `0x0436`). **Both map
+   `;e` -> U+0259**, so the behavioural check alone cannot distinguish them, and
+   Win+Space cycling lands on either. `kmhunt.ps1` now logs the langid on every
+   trial; **earlier results predate that and are therefore unattributable.**
+   Re-run before trusting any rate.
 
-**RESOLVED — the wedge was on the KEYMAN keyboard, not the MS layout.** Confirmed
-by direct observation (the user was watching the layout indicator during the runs).
+   Two corrections to what was originally written here. First, the langid *can* be
+   trusted — read it off the focus thread (see §3 and the harness traps). Second,
+   a trial on the Microsoft layout is **not** "a different experiment altogether":
+   the modifier post that corrupts Keyman's cache runs before the
+   `!isKeymanKeyboardActive` gate, so such a trial still charges the bug — it just
+   cannot show it. That is now the basis of the proof in §3 rather than a
+   confound.
 
-This resolves the intermittency in a specific and reassuring direction:
+**PARTLY RESOLVED, PARTLY WRONG — superseded by the three-arm experiment in §3.**
 
-- With the **Keyman** keyboard active, Keyman **swallows** each key
-  (`k32_lowlevelkeyboardhook.cpp:249-260`) and the wedge is reachable — candidate
-  B fires.
-- With the **MS Cameroon** layout active, `!isKeymanKeyboardActive` sends the key
-  down the pass-through branch (`:229-240`), nothing is swallowed, and the wedge is
-  **not reachable** — candidate B is clean by construction.
+The wedge *was* on the Keyman keyboard, and the two-Cameroon-keyboards confound
+was real. But the conclusion drawn from it below was **false**, and it was false
+in the direction that matters:
 
-Since both layouts satisfy the `;e` -> U+0259 check, the "clean" runs were almost
-certainly trials that had silently landed on the MS layout, i.e. **not the
-experiment at all**. The trigger itself is very likely deterministic *given the
-Keyman keyboard is genuinely active*; the variance was in the harness, not in
-Keyman.
+> ~~With the **MS Cameroon** layout active, `!isKeymanKeyboardActive` sends the key
+> down the pass-through branch (`:229-240`), nothing is swallowed, and the wedge is
+> **not reachable** — candidate B is clean by construction.~~
 
-This also confirms the mechanism requires Keyman's swallow-and-reinject path, not
-merely the presence of its hook — which is the answer to the "is Keyman required?"
-question that had been open, and it means the fix must land in the Keyman path.
+That is not what happens. The wedge **is** reachable while the Microsoft layout is
+active. It simply cannot be *observed* there, because the corrupted state lives in
+Keyman and only affects output once a Keyman keyboard is active again. Measured
+3/3, deterministically — see §3.
 
-### The remaining harness gap: detecting WHICH Cameroon keyboard is active
+Consequently this claim must also be withdrawn:
 
-`kmhunt.ps1` now logs the langid per trial, but **that oracle is not trustworthy
-here**: during the 22:57 restore it reported `0x2000` on every cycle *including*
-the iterations where `;e` produced a literal `;e`. That is gotcha #3 again — the
-HKL does not track TSF profile switches in Notepad.
+> ~~This also confirms the mechanism requires Keyman's swallow-and-reinject path,
+> not merely the presence of its hook.~~
 
-So neither available oracle distinguishes the two Cameroon keyboards:
+The opposite is true: **the presence of the hook is sufficient.** The
+swallow-and-reinject path is what makes the damage *visible*, not what causes it.
+The fix must still land in the Keyman path, but it has to cover the case where no
+Keyman keyboard is active at all.
 
-| oracle | Keyman Cameroon | MS Cameroon | distinguishes? |
-|---|---|---|---|
-| `;e` -> U+0259 | yes | yes | **no** |
-| `GetKeyboardLayout` langid | 0x2000 | (stale, also reads 0x2000) | **no** |
+### SOLVED: detecting WHICH Cameroon keyboard is active
 
-Fix this before trusting any further rate. Two workable approaches:
+The HKL **is** a trustworthy oracle. The earlier failures came from asking the
+wrong thread.
 
-1. **Ask Keyman directly.** `KMC_GETLASTKEYMANID` (wParam 12) / `KMC_GETLASTACTIVE`
-   (11) on `WM_KEYMAN_CONTROL`, sent to keyman.exe's `TApplication` window, report
-   the active Keyman keyboard. If Keyman says no Keyman keyboard is active, abort
-   the trial as invalid rather than recording it as clean. **This is the right
-   fix** — it asks the component that actually knows.
-2. **Find a keystroke the two layouts answer differently.** MSKLC supports only
-   single dead-key + base; the Keyman keyboard can express longer context. A
-   three-key rule unique to `sil_cameroon_qwerty` would be a pure behavioural
-   discriminator needing no IPC.
+Windows 11 Notepad is a multi-threaded WinUI app. The top-level `Notepad` frame
+window sits on a thread pinned at `0x0409` for the life of the process; the
+focused `RichEditD2DPT` edit control lives on a *different* thread, and that one
+tracks the input locale correctly. `MainWindowHandle` resolves to the frame
+thread — which is why `GetKeyboardLayout` "reported `0x0409` while Keyman was
+demonstrably live". It was reporting the truth about a thread that never changes.
 
-Until one of these is in place, `kmhunt.ps1` should treat a trial as **INVALID**,
-not CLEAN, whenever it cannot prove the Keyman keyboard was active — silently
-scoring an unreachable-by-construction trial as a pass is exactly what produced
-the misleading 0/3 and 0/4 results above.
+Resolve the thread from `GetGUIThreadInfo(0).hwndFocus` instead and it
+discriminates all three keyboards cleanly. Verified by same-thread A/B on
+2026-08-23, notepad pid 5500 tid 3196:
+
+| keyboard | focus-thread HKL | langid |
+|---|---|---|
+| Keyman `sil_cameroon_qwerty` (`aal-Latn-CM`) | `0x04092000` | **0x2000** |
+| MS `CAMQ2017.dll` (`a0000436`, under `af`) | `0xF0C00436` | **0x0436** |
+| MS US English (`00000409`, `KBDUS.DLL`) | `0x04090409` | **0x0409** |
+
+Cross-checked against the Windows tray input indicator read via UI Automation,
+which names the active method in words (`aal-Latn-CM / Cameroon QWERTY` vs
+`Afrikaans / Cameroon QWERTY 2017`). Two independent oracles, agreeing.
+
+`kmproof.ps1` uses the focus thread everywhere and reads the HKL in exactly one
+place (`Get-FocusKeyboard`). `kmhunt.ps1`, `kmrepro.ps1` and `kmflex.ps1` still
+resolve from the top-level window and are still exposed to the stale reading.
+
+Two traps this exposed, both live:
+
+- **The full HKL matters, not just the langid.** en-US carries two input methods
+  on this machine. Win+Space lands on Dvorak as `HKL=0xF0020409` — high word
+  `0xF002`, a substitution handle, *not* the `0x0001` you would predict from
+  layout id `00010409`. Since `abc` is not `abc` on Dvorak, a langid-only check
+  would have let the ASCII oracle silently lie. Require `0x04090409` exactly.
+- **langid `0x2000` is shared.** The registry has *both* Keyman Cameroon
+  (`{25C4EE49-…}`) and Keyman Yoruba (`{8AC81CC8-…}`) registered under `0x2000`.
+  Only the installed profile is reachable here, but the arm should still be
+  confirmed behaviourally, not by langid alone.
 
 ### Harness traps found the hard way
 
@@ -261,22 +315,186 @@ the misleading 0/3 and 0/4 results above.
   a near-perfect impersonation of this bug (no output, keyboard "active", modifier
   apparently stuck) with Keyman entirely uninvolved. Verified: the same run with
   the trigger removed still "failed" 5/10. **Prefer LShift for modifier tests.**
-- `GetKeyboardLayout()` is an unreliable and app-dependent oracle — it reported
-  `0x0409` in Notepad while Keyman was demonstrably live, and reported correctly
-  in FieldWorks. Always verify behaviourally, and never gate a test on the HKL.
+- ~~`GetKeyboardLayout()` is an unreliable and app-dependent oracle.~~ **Corrected:
+  it is reliable; the earlier tests asked the wrong thread.** Win11 Notepad's
+  top-level frame window sits on a thread pinned at `0x0409` forever, while the
+  focused `RichEditD2DPT` edit control is on another thread that tracks the input
+  locale correctly. Resolving from `MainWindowHandle` reads the frame thread —
+  hence "`0x0409` while Keyman was demonstrably live". Resolve from
+  `GetGUIThreadInfo(0).hwndFocus` and it discriminates all three keyboards. Also
+  compare the **full** HKL, not just the langid (Dvorak lands as `0xF0020409`).
+- **`Write-Host` can cost seconds per call.** Measured on this machine with 15
+  conhost processes alive: `Write-Host` **4301 ms/line** vs
+  `[Console]::Out.WriteLine` **0.4 ms/line** vs `Add-Content` 1.8 ms/line. Not an
+  I/O problem — a console-host problem, and it appears only once the console is
+  congested, so nothing looks wrong in the log. This is a **correctness** hazard
+  for a timing experiment: `kmhunt.ps1` calls `Say` from inside candidate I's
+  action and between trigger and probe, so multi-second dead time can let a 5 s
+  freeze expire before the probe runs and silently turn a trial into a no-freeze
+  control. `kmproof.ps1` uses `[Console]::Out.WriteLine`; `kmhunt.ps1`,
+  `kmrepro.ps1` and `kmflex.ps1` still use `Write-Host`. **The bimodal
+  all-or-nothing counts in `kmhunt.ps1`'s header should be re-checked on this
+  basis before being quoted.**
 - The wedge is often **transient at the OS level**, so an external probe run
   seconds later reports clean. Measure inside the failing iteration.
+
+---
+
+## 3. Proof: it is Keyman — not the layout, not Windows, not the harness
+
+Run with `kmproof.ps1`, 2026-08-23, Keyman 18.0.249.0, Notepad, `-LoadThreads 4`
+throughout. Three keyboards, one stimulus. The freeze is posted to keyman.exe on
+**every** arm and keyman.exe is running throughout, so the stall, the key
+sequence, the timings, the load and the target window are identical in all arms.
+The only variable is which keyboard owns the keystrokes.
+
+| arm | keyboard | identity |
+|---|---|---|
+| US | Microsoft US English | `00000409` / `KBDUS.DLL` |
+| MSKLC | Microsoft Cameroon QWERTY 2017 | `a0000436` / `CAMQ2017.dll`, under `af` |
+| Keyman | Keyman Cameroon QWERTY | `sil_cameroon_qwerty`, TIP `{25C4EE49-…}` under `aal-Latn-CM` |
+
+### The two keyboards are output-identical when working
+
+Measured, not assumed:
+
+| arm | `;e` then RAlt+N | `abc` (no Shift sent) |
+|---|---|---|
+| MSKLC | `U+0259 U+014B` | `abc` |
+| Keyman | `U+0259 U+014B` | `abc` |
+| US | `U+003B U+0065` — plain `;e` | `abc` |
+
+So any divergence under the trigger **cannot** be attributed to the layout. Note
+US emits *nothing* for RAlt+N: on a US layout RAlt is plain Alt, a menu
+accelerator, not AltGr. That is why the layout-agnostic `abc` / `ABC` oracle is
+required — it is the one measurement that is the same in all three arms.
+
+### Candidate I (modifier released into a confirmed stall)
+
+| arm | trials | wedged |
+|---|---|---|
+| US | 10 | **0** |
+| MSKLC | 10 (both oracles) | **0** |
+
+### The charge test — the decisive result
+
+Per rep: five candidate-I trials **while the Microsoft Cameroon layout is
+active**, then switch to Keyman once and probe.
+
+| rep | MSKLC output during charging | Keyman on return |
+|---|---|---|
+| 1 | 5/5 perfect `U+0259 U+014B` | **WEDGED** `U+0259 U+014A`, `mods=LShift` |
+| 2 | 5/5 perfect | **WEDGED** `U+0259 U+014A`, `mods=LShift` |
+| 3 | 5/5 perfect | **WEDGED** `U+0259 U+014A`, `mods=LShift` |
+
+**MSKLC output: 0/15 disturbed. Keyman on return: 3/3 corrupted.** Deterministic.
+
+Paired control (`-SwitchStress`): the same 60 keyboard switches and the same
+deadkey probe on Keyman ten times, with **no freeze ever posted** — 0/10 wedged.
+So neither the switching nor the probe is responsible.
+
+### What each arm rules out
+
+- **MSKLC clean** kills "it's the layout" and kills "Windows dropped the KEYUP".
+  Same layout, same OS, same stimulus; the Microsoft implementation — which
+  relies on Windows' own modifier tracking — stayed correct throughout.
+- **US clean, and switch-stress clean** kill "the harness manufactures the
+  phantom Shift". The identical injected keystrokes leave both Microsoft
+  keyboards perfect.
+- **`mods=none` all through charging, `mods=LShift` only after switching to
+  Keyman** kills "the OS lost the key". Windows' own `GetAsyncKeyState` was
+  correct the entire time until a Keyman keyboard became active — at which point
+  a stuck LShift appears in OS-visible state. Keyman is *synthesising* it.
+
+### The mechanism, verified in source
+
+The pass-through argument previously used in this document is wrong, and the
+source says exactly why. In `k32_lowlevelkeyboardhook.cpp`:
+
+```cpp
+// :193  #7337 Post the modifier state ensuring the serialized queue is in sync
+// :198
+if (isModifierKey(hs->vkCode) && flag_ShouldSerializeInput) {
+  PostMessage(..., WM_KEYMAN_MODIFIER_EVENT, hs->vkCode, ...);   // :201
+}
+...
+// :233 — THIRTY-FIVE LINES LATER
+if (hs->dwExtraInfo != 0 || ... || !isKeymanKeyboardActive) {
+  return_SendDebugExit(CallNextHookEx(...));                     // pass through
+}
+```
+
+The modifier post at **:198-201 is not gated on `isKeymanKeyboardActive`.** It is
+gated only on `isModifierKey()` and `flag_ShouldSerializeInput`. The
+`!isKeymanKeyboardActive` pass-through at **:233** happens afterwards, and only
+affects *character* keys.
+
+Therefore **Keyman updates its cached modifier state for every modifier keystroke
+on the machine, whether or not any Keyman keyboard is active** — while it only
+*consumes* that cache when one is (`serialkeyeventserver.cpp:388,399`
+`keybd_shift`). That is precisely charge-while-inactive, fire-on-activation, which
+is what the table above measures.
+
+Two further notes from source:
+
+- The comment at :193 says the post exists "ensuring the serialized queue is in
+  sync". The synchronisation mechanism is the desynchronisation vector: the post
+  is dropped when the hook thread is blocked, and the cache is seeded from the OS
+  exactly once (`serialkeyeventserver.cpp:251`, `InitThread`) and never
+  reconciled again (`:581` is the only writer).
+- `isKeymanKeyboardActive` is maintained by a *GetMessage* hook
+  (`kmhook_getmessage.cpp:405`, matching the KMTip CLSID in an atom string), so it
+  flips on window/focus/TSF activity — which is the "fire on switch" half of the
+  observed behaviour.
+
+### Consequence for the fix
+
+A fix that only re-validates on the Keyman path is insufficient. The cache is
+corrupted while Keyman is a bystander, so either the modifier post must respect
+`isKeymanKeyboardActive` too, or — better, and what `FIX-PROPOSAL.md` already
+argues — `m_ModifierKeyboardState[]` must be reconciled against the OS at the
+start of every injected batch, with the OS winning.
+
+### Scope limits of this proof
+
+- One machine, one Windows build (11 Pro 26200), one Keyman build (18.0.249.0).
+- The stall is induced with the debug-only `KMC_WATCHDOG_FAKEFREEZE`. This proves
+  the *mechanism*; it is not the field path.
+- All keystrokes are **injected** (`keybd_event`). Injection is demonstrably
+  sufficient to trigger the wedge, but Keyman can distinguish synthetic keys
+  (`LLKHF_INJECTED`, and the `dwExtraInfo`/`SCAN_FLAG_KEYMAN_KEY_EVENT` checks at
+  :229-233), so a physical-keyboard result is not strictly implied.
+- Recovery: the injected six-modifier sweep cleared it 3/3, and a physical
+  double-tap on LShift also clears it. One earlier run went wedged →
+  `NO-OUTPUT` under the same sweep, so recovery is not perfectly reliable.
+
+### Reproducing it
+
+```powershell
+cd D:\Github\_Projects\_KM\kmrepro
+.\kmproof.ps1 -FingerprintOnly                      # identify all three keyboards
+.\kmproof.ps1 -Only I -Repeat 5 -LoadThreads 4      # three-arm comparison
+.\kmproof.ps1 -SwitchStress 10 -LoadThreads 4       # control: switches, no freeze
+.\kmproof.ps1 -ChargeTest 3 -LoadThreads 4          # the decisive test
+```
+
+---
 
 ### What is NOT established
 
 - That the watchdog is involved. **It is not**: the LowLevelHookWatchDog ghost key
   was absent from every reproducing run. The hypothesis this investigation began
   with (`83251358b0`, 18.0.245) is unsupported.
-- That Keyman is strictly required (see the layout confound above).
 - The field path that stalls the thread. CPU load alone did not do it (32 hogs on
   16 cores — and that crashed the host PowerShell with `OutOfMemoryException`).
-- Why the field symptom persists until a Keyman restart when most reproduced
-  wedges here cleared on the next modifier edge. There may be a second factor.
+  `-LoadThreads 4` plus the debug freeze is what reproduces here.
+- Whether physical keystrokes behave as injected ones do — see scope limits in §3.
+- Why the field symptom persists until a Keyman restart when reproduced wedges
+  here cleared on a modifier edge. There may be a second factor.
+
+**Now established** (was "that Keyman is strictly required"): Keyman is required,
+and more than that — the corruption occurs while Keyman is not even the active
+keyboard. See §3.
 
 ### Fix
 
