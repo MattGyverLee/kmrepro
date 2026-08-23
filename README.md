@@ -66,6 +66,7 @@ Start here and stop when you have what you need.
 | **`TRIGGER.md`** | The full write-up: plain-language description, the defect chain with code refs, the reproduction, and **§3, the three-arm controlled proof**. Also carries the hard-won harness traps — read those before writing any test here. |
 | **`MODIFIERS.md`** | Which modifier keys are actually in scope. Rules Win, Fn, Scroll Lock and Insert out; explains phantom Right Ctrl on hardware that has no such key; separates the two independent caches. |
 | **`FIX-PROPOSAL.md`** | Proposed fixes in order of value, with the caveats not to overstate in a PR. |
+| **`HAZARDS.md`** | **Read before writing or changing harness code.** FLEx and FieldWorks operational hazards plus the safety rules for the live language data. Two of these corrupted the user's lexicon. |
 | **`TODO.md`** | Working list: investigations, the PR #16423 fixes, deferred Cache A work, harness gaps, test gates, and suggested order. |
 
 ### Historical record — read with a date in mind
@@ -78,7 +79,7 @@ measurements, not because their conclusions hold.
 | `PROTOCOL.md` | Test protocol for the **original hypothesis** — that the `LowLevelHookWatchDog` added in 18.0.245 tears out and reinstalls the hook. **That hypothesis was not supported**; the ghost key was absent from every reproducing run. |
 | `RESULTS-control-18.0.238.md` | Control baseline, pre-watchdog build. All clean. |
 | `RESULTS-treatment-18.0.249.md` | Treatment run. Watchdog confirmed present and live, but the hypothesised failure did not reproduce in 45 iterations. This is the null result that redirected the investigation. |
-| `HANDOFF.md` | Status header is stale (it predates the upgrade it is waiting on). The mechanism discussion is still useful. |
+| `archive/HANDOFF.md` | Archived 2026-08-23. Framed around the unsupported watchdog hypothesis, and its status header predates the upgrade it was waiting on. Its live content was extracted first: the hazards and safety rules to `HAZARDS.md`, the secondary suspects and ruled-out list to `TODO.md` §1 and §1a. |
 | `archive/` | Superseded scripts: `kmwedge.ps1` (structured on the wrong assumption — trigger inside each iteration), `kmstick.ps1`, and earlier reports. |
 
 ---
@@ -151,8 +152,9 @@ physically have; see `MODIFIERS.md` §3b.
 
 ## Before you write a test here
 
-`TRIGGER.md` has the full list. The four that have each already cost a round of
-false results:
+`TRIGGER.md` has the full list of measurement traps; `HAZARDS.md` covers the
+ways you can break the target rather than mis-measure it. The four below have
+each already cost a round of false results:
 
 - **PowerShell `-eq` / `-ne` / `-match` are case-insensitive**, and U+014A/U+014B
   are the upper/lowercase ENG pair — so wedged output compares *equal* to clean

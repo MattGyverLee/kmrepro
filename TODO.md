@@ -46,6 +46,28 @@ so they come first.
   `FIX-PROPOSAL.md` already flags it as an open caveat. Resolve before any fix
   claims to cover 64-bit.
 
+- [ ] **I8 — Mixed engine versions after an in-place upgrade.**
+  Rescued from `HANDOFF.md` §4 when it was archived, because it is an independent
+  candidate mechanism that no other doc carries.
+  `keyman32.dll` / `kmtip.dll` are mapped into every running application, so an
+  in-place upgrade with `REBOOT=ReallySuppress` (`RunTools.pas:514`,
+  `REINSTALLMODE=vomus REINSTALL=ALL`) replaces `keyman.exe` immediately while the
+  injected DLLs keep serving the *old* code until reboot. **There is no version
+  handshake anywhere between engine components** (grepped).
+  **Why it matters:** this independently explains two things the current write-ups
+  attribute to the stall — the "started right after the update" clustering, and
+  why rebooting fixes it more thoroughly than restarting Keyman. It may be a
+  co-factor rather than an alternative, and it is a candidate for the unexplained
+  run in **I4**.
+
+- [ ] **I9 — Does a failed hook reinstall leave Keyman unrecoverable?**
+  Also from `HANDOFF.md`. `InitLowLevelHook()` is not retried on failure, so a
+  failed reinstall appears to leave Keyman with no hook and no recovery path. The
+  watchdog hypothesis was not supported as *the* cause of the wedge, but this is a
+  separate robustness defect that would produce "Keyman active, nothing works at
+  all" — which matches the field description better than the stuck-modifier wedge
+  does. Verify by forcing a reinstall failure.
+
 - [ ] **I2 — Enumerate the real-world `E0 1D` emitters.**
   Other seed candidates from `MODIFIERS.md` §3d.2: RDP / Citrix / VNC, VM guest
   tools, PowerToys / AutoHotkey remaps, KVM switches, on-screen keyboard, and
@@ -78,6 +100,47 @@ so they come first.
   document. Confirm on real affected hardware: phantom RCtrl reported by
   `GetAsyncKeyState`, no physical tap clears it, Keyman restart does. Pairs with
   **H3**, which tests the same claim by injection without needing the hardware.
+
+
+---
+
+## 1a. Ruled out
+
+Kept so they are not re-investigated. From `HANDOFF.md` §5 and this session's
+work.
+
+- **Core normalization changes in 18.0.246** — LDML keyboards only.
+  `kmx_processor::supports_normalization()` returns `false`
+  (`core/src/kmx/kmx_processor.hpp:83`), so KMN/KMX keyboards, i.e. essentially
+  all SIL keyboards, never enter that path. Cannot cause complete input failure.
+- **18.0.247, 248, 249** contain no `windows/` or `core/` changes at all.
+- **The VC++ v142 -> v143 rebuild** (`d7b16aece9`, 18.0.245). Runtime linkage
+  stayed `MultiThreaded` (static), so this is not a VC redist problem. New codegen
+  can surface latent races, so it is a confounder, not a cause.
+- **`LangSwitchManager.pas` rework** (18.0.245). An intermediate commit had a real
+  bug (bare `Free` freeing `Self`) but it was fixed within the same release.
+  Nothing shipped broken.
+- **The original watchdog hypothesis** — that `LowLevelHookWatchDog` (18.0.245,
+  `83251358b0`) tears out and reinstalls the hook on a healthy system and loses a
+  modifier KEYUP in the gap. Not supported: the ghost key was absent from every
+  reproducing run. See `RESULTS-treatment-18.0.249.md` for the null result.
+- **Win, Apps, Fn, Scroll Lock and Insert as stuck-modifier candidates** — see
+  `MODIFIERS.md` §2. Absent from `isModifierKey()` and from the `modifiers[6]`
+  arrays; Fn never reaches Windows as a virtual key.
+
+### Version timeline
+
+| version | date | Windows engine change |
+|---|---|---|
+| 18.0.235 | 2025-04-23 | first stable |
+| 18.0.239 | 2025-08-21 | update-check rework (kmshell only) |
+| 18.0.242 | 2025-09-29 | locale-name caching; MSI advertised-shortcut fix |
+| **18.0.245** | **2025-11-28** | **`LowLevelHookWatchDog` + all C++ rebuilt v142 -> v143** |
+| 18.0.246 | 2026-02-04 | core normalization (LDML only) |
+| 18.0.247-249 | Mar 2026 | nothing in `windows/` or `core/` |
+
+Anyone upgrading from <= 18.0.244 to 18.0.249 gets the watchdog for the first
+time — which is what made it the initial suspect.
 
 ---
 
@@ -254,7 +317,9 @@ Gates before either defect is called done.
    question. Gate on **T1-T5**. Settle **F5** with the reviewer before opening.
 4. **H2 -> H1 -> H3** to close the Ctrl gap in the repro, with **I7** if hardware
    can be found.
-5. **I2 / I3 / I4 / I6** as the remaining open questions. **I3** is the one that
-   blocks a complete field story for the Cache A PR.
+5. **I2 / I3 / I4 / I6 / I8 / I9** as the remaining open questions. **I3** is the
+   one that blocks a complete field story for the Cache A PR. **I8** is the one
+   most likely to turn out to be a co-factor rather than a dead end, since it
+   independently explains the post-update clustering.
 6. **D1-D6** only when the Cache A work is picked up. **D1** should land as a
    shared helper with #16423's resync, not as a second independent patch.
