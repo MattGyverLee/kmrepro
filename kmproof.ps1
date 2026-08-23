@@ -160,6 +160,17 @@ param(
   [int]$ChargeTest = 0,
   [int]$ChargeTrials = 5,
 
+  # Sweep mode: the shortest end-to-end demonstration, as an A/B/A.
+  #   phase TRIGGER - walk US -> MSKLC -> Keyman applying the trigger on each
+  #   phase WEDGED  - walk the same three again, applying NOTHING, and read what
+  #                   each keyboard emits while Keyman is wedged
+  #   phase CLEARED - clear the wedge, then walk the three again
+  # Phase WEDGED is the sharpest statement of "this is Keyman only": the
+  # Microsoft keyboards still type perfectly on the same machine, in the same
+  # session, at the same moment that Keyman is producing garbage.
+  [switch]$Sweep,
+  [int]$SweepTrials = 1,
+
   [switch]$FingerprintOnly,
   [switch]$IKnowClearFieldIsDestructive,
   [string]$LogDir = "$env:TEMP\kmrepro"
@@ -228,7 +239,14 @@ $SCHWA = [string][char]0x0259   # U+0259 LATIN SMALL LETTER SCHWA
 $ENG   = [string][char]0x014B   # U+014B LATIN SMALL LETTER ENG     - clean
 $ENGUP = [string][char]0x014A   # U+014A LATIN CAPITAL LETTER ENG   - wedged
 $CLEAN_DEADKEY = $SCHWA + $ENG
-$WEDGE_DEADKEY = $SCHWA + $ENGUP
+# TWO wedge depths, both real, observed 2026-08-23:
+#   partial - only the eng is shifted: schwa + CAPITAL eng
+#   full    - Shift is applied to EVERYTHING, so ';' -> ':' and 'e' -> 'E' too.
+#             TRIGGER.md already described this as "in the fuller form, :E<ENG>".
+# The full form scored OTHER until it was added here, which made a correctly
+# reproduced wedge look like an unreadable probe.
+$WEDGE_DEADKEY = $SCHWA + $ENGUP                                  # partial
+$WEDGE_FULL    = [string][char]0x003A + [string][char]0x0045 + $ENGUP   # ':' 'E' ENG
 
 $stamp   = Get-Date -Format 'yyyyMMdd-HHmmss'
 $log     = Join-Path $LogDir "proof-$stamp.txt"
@@ -415,7 +433,33 @@ function WaitForFreeze([int]$timeoutMs = 3000) {
 # Clears the field outright rather than counting backspaces: a dropped deadkey
 # changes the character count, and miscounted backspaces then corrupt the NEXT
 # probe.
+# CRITICAL: clear PROGRAMMATICALLY, not with keystrokes.
+#
+# The original version sent Ctrl+A then Delete. That works fine on a clean
+# machine and FAILS SILENTLY the moment the wedge fires: with a phantom LShift
+# latched, Ctrl+A becomes Ctrl+Shift+A and Delete becomes Shift+Delete, so the
+# field is never emptied. Every subsequent probe then reads the whole
+# accumulated buffer and scores OTHER regardless of which keyboard is active.
+#
+# That artifact produced a bogus "[CLAIM FAILS] a Microsoft keyboard was also
+# not-CLEAN" verdict in the 10:15 sweep - US and MSKLC were fine; the readback
+# was broken. Any keystroke-based clear is unusable in exactly the state this
+# script exists to measure.
+#
+# UIA SetValue touches no keys, so it cannot be perturbed by a stuck modifier
+# and cannot perturb Keyman's cached state either. Keystrokes remain only as a
+# fallback if the pattern refuses.
 function ClearField {
+  try {
+    $vp.SetValue('')
+    Start-Sleep -Milliseconds 120
+    if ([string]::IsNullOrEmpty((Get-DocText))) { return }
+  } catch { }
+  # Fallback. Release modifiers first or this cannot work while wedged - but
+  # note that releasing them may itself clear the wedge, so a run that lands
+  # here is not a clean measurement and says so.
+  Say '        [WARN] UIA SetValue clear failed; falling back to keystrokes (may disturb the wedge)'
+  ClearMods
   Kd 0x11; Start-Sleep -Milliseconds 70
   Tp 0x41 40
   Ku 0x11; Start-Sleep -Milliseconds 120
@@ -448,10 +492,12 @@ function ProbeDeadkeyOnce {
   $state = 'OTHER'
   # Same -ceq trap, and worse here: U+014A/U+014B are the upper/lowercase ENG
   # pair, so -eq reported every WEDGED state as CLEAN until it was caught.
+  $variant = ''
   if     ($t -ceq $CLEAN_DEADKEY) { $state = 'CLEAN' }
-  elseif ($t -ceq $WEDGE_DEADKEY) { $state = 'WEDGED' }
+  elseif ($t -ceq $WEDGE_DEADKEY) { $state = 'WEDGED'; $variant = 'partial' }
+  elseif ($t -ceq $WEDGE_FULL)    { $state = 'WEDGED'; $variant = 'full' }
   elseif ([string]::IsNullOrEmpty($t)) { $state = 'NO-OUTPUT' }
-  return [pscustomobject]@{ Oracle='Deadkey'; State=$state; Text=$t; Cp=(Show-Cp $t); Mods=(ModsHeld) }
+  return [pscustomobject]@{ Oracle='Deadkey'; State=$state; Variant=$variant; Text=$t; Cp=(Show-Cp $t); Mods=(ModsHeld) }
 }
 
 function ProbeOnce([string]$oracle) {
@@ -696,6 +742,180 @@ try {
       Say  '  That leaves the freeze trials on the Microsoft arms as the thing that wedged Keyman,'
       Say  '  which would mean Keyman tracks modifier state even when its own keyboard is inactive.'
     }
+    if ($results.Count -gt 0) {
+      $results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+      Say ("  csv  : {0}" -f $csvPath)
+    }
+    Say ("  log  : {0}" -f $log)
+    Say '==============================================================='
+    return
+  }
+
+  # ---- sweep mode --------------------------------------------------------
+  # One pass through all three keyboards per phase. Returns the rows so the
+  # caller owns accumulation ($results += inside a function would only mutate a
+  # function-local copy).
+  function Invoke-SweepPass([string]$label, [int]$triggers) {
+    $rows = @()
+    foreach ($arm in @('US','MSKLC','Keyman')) {
+      $k = Switch-ToArm $arm
+      if ($k.Arm -ne $arm) {
+        Say ("  [{0,-7}] {1,-7} SKIP - could not switch (focus thread says {2})" -f $label,$arm,$k.Arm)
+        continue
+      }
+      for ($t = 1; $t -le $triggers; $t++) {
+        Kd 0xA0; Start-Sleep -Milliseconds 1400
+        Freeze
+        $live = WaitForFreeze 3000
+        if (-not $live) { Say ("  [{0,-7}] {1,-7} [WARN] freeze not confirmed on trigger {2} - not a valid trial" -f $label,$arm,$t) }
+        Ku 0xA0; Start-Sleep -Milliseconds 400
+        Start-Sleep -Milliseconds 5200          # let the 5s freeze finish
+      }
+      # US cannot express the deadkey oracle at all; the other two can.
+      $oracles = @('Ascii')
+      if ($arm -ne 'US') { $oracles = @('Ascii','Deadkey') }
+      $what = 'observe only'
+      if ($triggers -gt 0) { $what = ("{0} trigger(s)" -f $triggers) }
+      foreach ($o in $oracles) {
+        $p = Probe $o
+        Say ("  [{0,-7}] {1,-7} {2,-8} {3,-14} -> {4,-9} ({5}) mods={6}" -f $label,$arm,$o,$what,$p.State,$p.Cp,$p.Mods)
+        $rows += [pscustomobject]@{
+          Arm=$arm; Pass=0; Candidate=('sweep-' + $label); Desc=("sweep phase " + $label + ', ' + $what); Oracle=$o
+          State=$p.State; Cp=$p.Cp; Text=$p.Text; Mods=$p.Mods
+          LangId=('0x{0:X4}' -f $k.LangId); Hkl=('0x{0:X8}' -f $k.Hkl)
+          ArmConfirmed=$true; Valid=($p.State -eq 'CLEAN' -or $p.State -eq 'WEDGED'); LoadThreads=$LoadThreads
+          Phase=$label
+        }
+      }
+    }
+    return $rows
+  }
+
+  function Get-SweepState($rows, [string]$arm, [string]$oracle) {
+    $r = @($rows | Where-Object { $_.Arm -eq $arm -and $_.Oracle -eq $oracle })
+    if ($r.Count -eq 0) { return '-' }
+    return $r[-1].State
+  }
+
+  if ($Sweep) {
+    Say '================ SWEEP: trigger / observe-wedged / clear / observe-clean ================'
+    Say ("  {0} trigger(s) per keyboard in the TRIGGER phase; later phases apply NOTHING." -f $SweepTrials)
+    Say ''
+
+    Say '---- phase 1: TRIGGER (walk all three, trigger on each) ----'
+    $p1 = Invoke-SweepPass 'TRIGGER' $SweepTrials
+    $results += $p1
+    $kmAfter1 = Get-SweepState $p1 'Keyman' 'Deadkey'
+    Say ''
+
+    $p2 = @()
+    if ($kmAfter1 -eq 'CLEAN') {
+      Say ("---- phase 2: SKIPPED - Keyman came back CLEAN after {0} trigger(s) per keyboard ----" -f $SweepTrials)
+      Say  '     The bug was not triggered, so there is no wedged state to observe.'
+      Say  '     Re-run with a higher -SweepTrials (the charge test needed 5 on MSKLC).'
+    } else {
+      Say '---- phase 2: WEDGED (walk all three again, applying NOTHING) ----'
+      Say  '     This is the Keyman-only claim in its sharpest form: same machine, same'
+      Say  '     session, same moment. Do the Microsoft keyboards still type correctly?'
+      $p2 = Invoke-SweepPass 'WEDGED' 0
+      $results += $p2
+    }
+    Say ''
+
+    Say '---- phase 3: CLEAR the wedge ----'
+    $k = Switch-ToArm 'Keyman'
+    $cleared = $false
+    if ($k.Arm -eq 'Keyman') {
+      ClearMods; TapAllMods
+      $rec = Probe 'Deadkey'
+      Say ("  injected recovery (ClearMods + TapAllMods) -> {0} ({1})" -f $rec.State,$rec.Cp)
+      $cleared = ($rec.State -eq 'CLEAN')
+      if (-not $cleared) {
+        # A physical double-tap on LShift is known to clear this where the
+        # injected sweep does not - injected keys carry LLKHF_INJECTED and
+        # Keyman can tell them apart. Ask for one rather than giving up.
+        Say  '  injected recovery did not clear it.'
+        Say  '  ACTION NEEDED: double-tap the physical LEFT SHIFT key now. Waiting up to 90s...'
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($sw.Elapsed.TotalSeconds -lt 90) {
+          Start-Sleep -Milliseconds 1500
+          $rec = Probe 'Deadkey'
+          if ($rec.State -eq 'CLEAN') { $cleared = $true; break }
+        }
+        if ($cleared) { Say ("  cleared by physical keystroke after {0:N0}s" -f $sw.Elapsed.TotalSeconds) }
+        else          { Say  '  still not clear. Keyman restart is the documented fallback; not doing that here.' }
+      }
+    } else {
+      Say ("  [SKIP] could not reach Keyman to clear (saw {0})" -f $k.Arm)
+    }
+    Say ''
+
+    $p3 = @()
+    if ($cleared) {
+      Say '---- phase 4: CLEARED (walk all three again, applying NOTHING) ----'
+      $p3 = Invoke-SweepPass 'CLEARED' 0
+      $results += $p3
+    } else {
+      Say '---- phase 4: SKIPPED - the wedge was never cleared ----'
+    }
+    Say ''
+
+    # ---- matrix -----------------------------------------------------------
+    Say 'SWEEP MATRIX'
+    Say ('  {0,-7} {1,-8} {2,-11} {3,-11} {4,-11}' -f 'arm','oracle','TRIGGER','WEDGED','CLEARED')
+    foreach ($arm in @('US','MSKLC','Keyman')) {
+      $oracles = @('Ascii')
+      if ($arm -ne 'US') { $oracles = @('Ascii','Deadkey') }
+      foreach ($o in $oracles) {
+        Say ('  {0,-7} {1,-8} {2,-11} {3,-11} {4,-11}' -f $arm,$o,
+              (Get-SweepState $p1 $arm $o), (Get-SweepState $p2 $arm $o), (Get-SweepState $p3 $arm $o))
+      }
+    }
+    Say ''
+
+    # ---- verdict ----------------------------------------------------------
+    # The phase a Microsoft arm goes bad in decides what it MEANS. The first
+    # version of this treated any non-CLEAN Microsoft probe as refuting the
+    # claim, which is wrong: during the WEDGED phase a Microsoft keyboard
+    # emitting ABC is the EXPECTED consequence of Keyman having injected a real
+    # LShift KEYDOWN with no matching KEYUP, and is evidence FOR the diagnosis,
+    # not against it. Only the TRIGGER phase can refute Keyman-only causation.
+    Say 'SWEEP VERDICT'
+    $msTrigger = @($p1 | Where-Object { ($_.Arm -eq 'US' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
+    $msWedged  = @($p2 | Where-Object { ($_.Arm -eq 'US' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
+    $msCleared = @($p3 | Where-Object { ($_.Arm -eq 'US' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
+
+    if ($kmAfter1 -eq 'CLEAN') {
+      Say ("  [NOT TRIGGERED] one pass with {0} trigger(s) per keyboard did not wedge Keyman." -f $SweepTrials)
+      Say  '                  Raise -SweepTrials and re-run before drawing any conclusion.'
+    } elseif ($msTrigger.Count -gt 0) {
+      Say ('  [CAUSATION CLAIM FAILS] the trigger itself disturbed a Microsoft keyboard in {0} probe(s):' -f $msTrigger.Count)
+      foreach ($r in $msTrigger) { Say ('      {0} {1} {2} -> {3} ({4})' -f $r.Phase,$r.Arm,$r.Oracle,$r.State,$r.Cp) }
+      Say  '      That would mean this is not Keyman-specific. Investigate before quoting.'
+    } else {
+      Say  '  [CAUSED BY KEYMAN ONLY] Under the identical trigger, US and MSKLC stayed CLEAN'
+      Say  '      while Keyman wedged. The layout is not at fault and neither is Windows.'
+      if ($msWedged.Count -gt 0) {
+        Say  ''
+        Say  '  [BUT THE DAMAGE IS MACHINE-WIDE] Once wedged, the Microsoft keyboards are'
+        Say  '      affected too, with NO trigger applied to them:'
+        foreach ($r in $msWedged) { Say ('      {0,-7} {1,-8} -> {2} ({3}) mods={4}' -f $r.Arm,$r.Oracle,$r.State,$r.Cp,$r.Mods) }
+        Say  '      They are not malfunctioning - they are correctly rendering a Shift that is'
+        Say  '      genuinely held as far as Windows is concerned. GetAsyncKeyState agrees.'
+        Say  '      Keyman synthesised it: keybd_shift_reset() emits a KEYDOWN for every'
+        Say  '      modifier its cache believes is held, with no matching KEYUP.'
+        Say  '      So: caused only via Keyman, suffered by everything.'
+      } elseif ($p2.Count -gt 0) {
+        Say  '      During the WEDGED phase the Microsoft keyboards stayed CLEAN, so the bad'
+        Say  '      state did NOT escape into OS-level key state on this run.'
+      }
+      if ($cleared -and $p3.Count -gt 0 -and $msCleared.Count -eq 0) {
+        Say  ''
+        Say  '  [RECOVERABLE] After clearing, all three keyboards are CLEAN again - a'
+        Say  '      recoverable desync, not permanent damage.'
+      }
+    }
+
     if ($results.Count -gt 0) {
       $results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
       Say ("  csv  : {0}" -f $csvPath)

@@ -56,6 +56,12 @@ never notices the mistake.
 - Nothing about your keyboard layout is at fault. A Microsoft-built clone of the
   very same Cameroon keyboard, typing the very same keys, comes through perfectly
   in the same conditions that corrupt Keyman.
+- **Once it goes wrong, it goes wrong everywhere — not just in your Keyman
+  typing.** Because Keyman holds Shift down for real, Windows itself now thinks
+  your finger is on Shift. Every other keyboard on the machine starts producing
+  capitals, and ordinary shortcuts change meaning in every application: Ctrl+A
+  arrives as Ctrl+Shift+A. So a user may well report "my whole computer has gone
+  strange", with no reason to connect it to their keyboard software.
 
 ### Why slow and heavily loaded machines are worse
 
@@ -337,6 +343,20 @@ Two traps this exposed, both live:
   basis before being quoted.**
 - The wedge is often **transient at the OS level**, so an external probe run
   seconds later reports clean. Measure inside the failing iteration.
+- **Never clear the test field with keystrokes.** Ctrl+A + Delete works fine on a
+  clean machine and fails silently the instant the wedge fires: with LShift
+  latched, Ctrl+A is delivered as **Ctrl+Shift+A** and Delete as Shift+Delete, so
+  the field is never emptied. Every later probe then reads the whole accumulated
+  buffer and scores OTHER regardless of which keyboard is active — which produced
+  a bogus "a Microsoft keyboard was also not-CLEAN" verdict until it was caught.
+  A keystroke-based clear is unusable in exactly the state being measured. Use
+  UIA `ValuePattern.SetValue('')`: it touches no keys, so it can neither be
+  perturbed by a stuck modifier nor perturb Keyman's cached state. (Verified
+  settable on Win11 Notepad, `IsReadOnly=False`.)
+- **Distinguish cause from consequence when scoring.** A Microsoft keyboard going
+  bad *under the trigger* would refute Keyman-only causation. The same keyboard
+  going bad *while already wedged* is the expected consequence and is evidence
+  **for** the diagnosis. Scoring both as failures inverts the conclusion.
 
 ---
 
@@ -405,6 +425,54 @@ So neither the switching nor the probe is responsible.
   Keyman** kills "the OS lost the key". Windows' own `GetAsyncKeyState` was
   correct the entire time until a Keyman keyboard became active — at which point
   a stuck LShift appears in OS-visible state. Keyman is *synthesising* it.
+
+### Cause is Keyman's; the blast radius is the whole machine
+
+These are two different questions and they have different answers. Conflating
+them is easy and it understates the bug.
+
+`kmproof.ps1 -Sweep` walks all three keyboards three times: once applying the
+trigger, once applying **nothing** while wedged, once after clearing.
+
+| arm | oracle | TRIGGER | WEDGED (nothing applied) | CLEARED |
+|---|---|---|---|---|
+| US | Ascii | CLEAN | **WEDGED** `ABC` | CLEAN |
+| MSKLC | Ascii | CLEAN | **WEDGED** `ABC` | CLEAN |
+| MSKLC | Deadkey | CLEAN `əŋ` | **WEDGED** `:EŊ` | CLEAN `əŋ` |
+| Keyman | Ascii | **WEDGED** `ABC` | **WEDGED** `ABC` | CLEAN |
+| Keyman | Deadkey | **WEDGED** `:EŊ` | **WEDGED** `:EŊ` | CLEAN |
+
+`mods=LShift` on every wedged probe; `mods=none` on every clean one.
+
+- **TRIGGER column — causation.** Under the identical trigger, both Microsoft
+  keyboards stay clean and only Keyman wedges. This is what exonerates the layout
+  and Windows.
+- **WEDGED column — consequence.** With *no trigger applied to them at all*, both
+  Microsoft keyboards are now broken too. They are not malfunctioning: they are
+  correctly rendering a Shift that Windows genuinely believes is held.
+  `GetAsyncKeyState` agrees. Keyman put it there — `keybd_shift_reset()`
+  (`keybd_shift.cpp:161-176`) emits a KEYDOWN for every modifier its cache thinks
+  is held, with no matching KEYUP.
+- **CLEARED column.** All three return to clean, so this is a recoverable desync,
+  not lasting damage.
+
+So: **caused only via Keyman, suffered by everything.** Once the wedge fires it is
+not a Keyman-typing problem, it is a system-wide stuck-Shift. Confirmed by the
+user independently: while wedged, **Ctrl+A is delivered as Ctrl+Shift+A**, so
+ordinary shortcuts in unrelated applications change meaning.
+
+This is materially worse than "the Cameroon keyboard types capitals", and it fits
+the field reports where users describe the whole machine going strange rather than
+just their typing. It should lead the bug report.
+
+**Two wedge depths exist**, both real:
+
+| depth | `;e` + RAlt+N | meaning |
+|---|---|---|
+| partial | `əŊ` — `U+0259 U+014A` | Shift reached only the eng |
+| full | `:EŊ` — `U+003A U+0045 U+014A` | Shift applied to everything, `;`→`:`, `e`→`E` |
+
+An oracle that only knows one of them scores the other as an unreadable probe.
 
 ### The mechanism, verified in source
 
@@ -475,7 +543,8 @@ cd D:\Github\_Projects\_KM\kmrepro
 .\kmproof.ps1 -FingerprintOnly                      # identify all three keyboards
 .\kmproof.ps1 -Only I -Repeat 5 -LoadThreads 4      # three-arm comparison
 .\kmproof.ps1 -SwitchStress 10 -LoadThreads 4       # control: switches, no freeze
-.\kmproof.ps1 -ChargeTest 3 -LoadThreads 4          # the decisive test
+.\kmproof.ps1 -ChargeTest 3 -LoadThreads 4          # charge while inactive, fire on switch
+.\kmproof.ps1 -Sweep -SweepTrials 1 -LoadThreads 4  # shortest end-to-end demo (A/B/A)
 ```
 
 ---
