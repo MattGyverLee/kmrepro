@@ -1,0 +1,16 @@
+# Screenshots of the live FieldWorks project. These show real Ngoreme lexical
+# entries, which are the language community's data rather than the project's own,
+# so they are kept out of the public repository by default.
+# To publish them deliberately:  git add -f archive/reports-control/*.png
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.gif
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Scratch / transient
+*.tmp
+*.bak

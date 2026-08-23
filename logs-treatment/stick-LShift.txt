@@ -1,0 +1,75 @@
+﻿14:58:18.604 ================ kmstick ================
+14:58:18.614 when          : 2026-08-22 14:58:18
+14:58:18.621 keyman version: 18.0.249.0
+14:58:18.626 keyman.exe    : hwnd=0x706B2
+14:58:18.631 foreground    : Code  HKL=0x4090409 langid=0x0409 -> US-MS
+14:58:18.635 modifier      : LShift (vk=0xA0 extended=False)
+14:58:18.637 hold=1400ms  releaseDelay=100ms  settle=400ms  iterations=6
+14:58:18.640 freeze posted : True
+14:58:18.643 NOTE: this test types nothing - it only reads GetAsyncKeyState.
+14:58:18.644 
+14:58:20.900   iter   1 : clean
+14:58:29.154   iter   2 : clean
+14:58:37.397   iter   3 : clean
+14:58:45.648   iter   4 : clean
+14:58:53.903   iter   5 : clean
+14:59:02.154   iter   6 : clean
+14:59:08.873 
+14:59:08.875 --- RESULT ---
+14:59:08.877   modifier        : LShift
+14:59:08.878   iterations      : 6
+14:59:08.880   STUCK           : 0
+14:59:08.882   layout under test: US-MS (langid 0x0409)
+14:59:08.885   final mods held : none
+14:59:08.886 =========================================
+14:59:08.888 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\stick-LShift.txt
+15:02:41.336 ================ kmstick ================
+15:02:41.349 when          : 2026-08-22 15:02:41
+15:02:41.360 keyman version: 18.0.249.0
+15:02:41.365 keyman.exe    : hwnd=0x706B2
+15:02:41.372 foreground    : Notepad  HKL=0x409046A langid=0x046A -> other
+15:02:41.377 modifier      : LShift (vk=0xA0 extended=False)
+15:02:41.380 hold=1400ms  releaseDelay=100ms  settle=400ms  iterations=6
+15:02:41.383 freeze posted : True
+15:02:41.387 NOTE: this test types nothing - it only reads GetAsyncKeyState.
+15:02:41.389 
+15:02:43.666   iter   1 : clean
+15:02:51.913   iter   2 : clean
+15:03:00.145   iter   3 : clean
+15:03:08.396   iter   4 : clean
+15:03:16.660   iter   5 : clean
+15:03:24.899   iter   6 : clean
+15:03:31.574 
+15:03:31.576 --- RESULT ---
+15:03:31.578   modifier        : LShift
+15:03:31.581   iterations      : 6
+15:03:31.583   STUCK           : 0
+15:03:31.585   layout under test: other (langid 0x046A)
+15:03:31.588   final mods held : none
+15:03:31.591 =========================================
+15:03:31.594 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\stick-LShift.txt
+15:04:11.135 ================ kmstick ================
+15:04:11.147 when          : 2026-08-22 15:04:11
+15:04:11.156 keyman version: 18.0.249.0
+15:04:11.162 keyman.exe    : hwnd=0x706B2
+15:04:11.168 foreground    : Notepad  HKL=0x409046A langid=0x046A -> other
+15:04:11.174 modifier      : LShift (vk=0xA0 extended=False)
+15:04:11.177 hold=1400ms  releaseDelay=100ms  settle=400ms  iterations=6
+15:04:11.179 freeze posted : True
+15:04:11.183 NOTE: this test types nothing - it only reads GetAsyncKeyState.
+15:04:11.185 
+15:04:13.924   iter   1 : clean
+15:04:22.253   iter   2 : clean
+15:04:30.563   iter   3 : clean
+15:04:38.878   iter   4 : clean
+15:04:47.223   iter   5 : clean
+15:04:55.546   iter   6 : clean
+15:05:02.229 
+15:05:02.232 --- RESULT ---
+15:05:02.234   modifier        : LShift
+15:05:02.236   iterations      : 6
+15:05:02.238   STUCK           : 0
+15:05:02.240   layout under test: other (langid 0x046A)
+15:05:02.243   final mods held : none
+15:05:02.245 =========================================
+15:05:02.247 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\stick-LShift.txt

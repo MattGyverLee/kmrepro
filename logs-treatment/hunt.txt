@@ -1,0 +1,158 @@
+﻿22:24:14.669 ================ kmhunt ================
+22:24:14.689 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+22:24:14.691 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+22:24:14.692 
+22:24:16.140 initial state: OTHER  'eŋ' (U+0065 U+014B)  mods=none
+22:24:16.143 [WARN] not starting clean - attempting recovery before the hunt
+22:24:19.506 after recovery: OTHER (U+0259)
+22:24:19.509 [FAIL] cannot reach a clean baseline; aborting
+22:25:27.425 ================ kmhunt ================
+22:25:27.437 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+22:25:27.440 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+22:25:27.444 
+22:25:32.075 initial state: CLEAN  'əŋ' (U+0259 U+014B)  mods=none
+22:25:32.078 
+22:25:38.863 pass 1 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+22:25:54.583 pass 1 [B] LShift held, freeze, release INTO the freeze               -> clean  (U+0259 U+014A) mods=LShift
+22:26:10.853 pass 1 [C] LShift held, freeze, release, then type DURING the freeze  -> clean  (U+0259 U+014A) mods=LShift
+22:26:24.780 pass 1 [D] rapid tap of all six modifiers (the "recovery" sweep itself) -> clean  (U+0259 U+014B) mods=none
+22:26:40.730 pass 1 [E] LShift DOWN, freeze, LShift UP then DOWN then UP inside freeze -> clean  (U+0259 U+014A) mods=LShift
+22:26:56.583 pass 1 [F] Ctrl+Shift chord released OUT OF ORDER during freeze       -> *** OTHER *** (U+003A U+0045) mods=LShift
+22:27:04.150         recovered by explicit KEYUP sweep alone (U+0259 U+014B)
+22:27:20.166 pass 1 [G] RAlt (extended) held, freeze, release into freeze          -> *** NO-OUTPUT *** (<empty>) mods=none
+22:27:28.050         explicit KEYUP sweep did NOT recover (<empty>); trying modifier taps
+22:27:36.659         after modifier taps: NO-OUTPUT (<empty>)
+22:27:36.662         STILL WEDGED - this is the persistent field symptom. Stopping so it can be examined live.
+22:27:36.663         (Keyman restart is the documented recovery.)
+22:27:36.666 
+22:27:36.668 --- RESULT ---
+22:27:36.671   WEDGED BY: pass1/F: Ctrl+Shift chord released OUT OF ORDER during freeze -> OTHER
+22:27:36.674   WEDGED BY: pass1/G: RAlt (extended) held, freeze, release into freeze -> NO-OUTPUT
+22:27:43.851   final probe: NO-OUTPUT
+22:27:43.852 ========================================
+22:29:32.726 ================ kmhunt ================
+22:29:32.737 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+22:29:32.740 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+22:29:32.742 
+22:29:37.375 initial state: CLEAN  'əŋ' (U+0259 U+014B)  mods=none
+22:29:37.378 
+22:29:37.384 
+22:29:37.386 --- RESULT ---
+22:29:37.389   no candidate wedged Keyman
+22:29:41.933   final probe: CLEAN
+22:29:41.936 ========================================
+22:30:41.079 ================ kmhunt ================
+22:30:41.091 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+22:30:41.092 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+22:30:41.096 
+22:30:45.683 initial state: CLEAN  'əŋ' (U+0259 U+014B)  mods=none
+22:30:45.687 
+22:30:52.467 pass 1 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+22:31:08.179 pass 1 [B] LShift held, freeze, release INTO the freeze               -> *** WEDGED *** (U+0259 U+014A) mods=LShift
+22:31:13.329         recovered by explicit KEYUP sweep alone (U+0259 U+014B)
+22:31:24.868 pass 1 [D] rapid tap of all six modifiers (the "recovery" sweep itself) -> clean  (U+0259 U+014B) mods=none
+22:31:40.814 pass 1 [E] LShift DOWN, freeze, LShift UP then DOWN then UP inside freeze -> *** WEDGED *** (U+0259 U+014A) mods=LShift
+22:31:45.983         recovered by explicit KEYUP sweep alone (U+0259 U+014B)
+22:31:51.193 
+22:31:51.195 --- RESULT ---
+22:31:51.197   WEDGED BY: pass1/B: LShift held, freeze, release INTO the freeze -> WEDGED
+22:31:51.199   WEDGED BY: pass1/E: LShift DOWN, freeze, LShift UP then DOWN then UP inside freeze -> WEDGED
+22:31:55.701   final probe: CLEAN
+22:31:55.703 ========================================
+22:32:33.748 ================ kmhunt ================
+22:32:33.759 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+22:32:33.761 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+22:32:33.764 
+22:32:38.428 initial state: CLEAN  'əŋ' (U+0259 U+014B)  mods=none
+22:32:38.432 
+22:32:45.199 pass 1 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+22:33:00.877 pass 1 [B] LShift held, freeze, release INTO the freeze               -> *** WEDGED *** (U+0259 U+014A) mods=LShift
+22:33:06.065         recovered by explicit KEYUP sweep alone (U+0259 U+014B)
+22:33:18.041 pass 2 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+22:33:33.713 pass 2 [B] LShift held, freeze, release INTO the freeze               -> *** WEDGED *** (U+0259 U+014A) mods=LShift
+22:33:38.875         recovered by explicit KEYUP sweep alone (U+0259 U+014B)
+22:33:50.857 pass 3 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+22:34:06.481 pass 3 [B] LShift held, freeze, release INTO the freeze               -> *** WEDGED *** (U+0259 U+014A) mods=LShift
+22:34:11.665         recovered by explicit KEYUP sweep alone (U+0259 U+014B)
+22:34:16.869 
+22:34:16.872 --- RESULT ---
+22:34:16.874   WEDGED BY: pass1/B: LShift held, freeze, release INTO the freeze -> WEDGED
+22:34:16.876   WEDGED BY: pass2/B: LShift held, freeze, release INTO the freeze -> WEDGED
+22:34:16.878   WEDGED BY: pass3/B: LShift held, freeze, release INTO the freeze -> WEDGED
+22:34:21.411   final probe: CLEAN
+22:34:21.413 ========================================
+22:55:05.961 ================ kmhunt ================
+22:55:05.969 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+22:55:05.972 probe: ASCII abc (layout-agnostic)   CLEAN=abc   WEDGED=ABC
+22:55:05.974 
+22:55:09.477 initial state: CLEAN  'abc' (U+0061 U+0062 U+0063)  mods=none
+22:55:09.480 
+22:55:15.148 pass 1 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0061 U+0062 U+0063) mods=none
+22:55:27.081 pass 1 [B] LShift held, freeze, release INTO the freeze               -> clean  (U+0061 U+0062 U+0063) mods=none
+22:55:37.943 pass 2 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0061 U+0062 U+0063) mods=none
+22:55:49.880 pass 2 [B] LShift held, freeze, release INTO the freeze               -> clean  (U+0061 U+0062 U+0063) mods=none
+22:55:55.095 
+22:55:55.099 --- RESULT ---
+22:55:55.102   no candidate wedged Keyman
+22:55:58.490   final probe: CLEAN
+22:55:58.492 ========================================
+22:56:43.972 ================ kmhunt ================
+22:56:43.982 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+22:56:43.986 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+22:56:43.989 
+22:56:51.270 initial state: OTHER  ';' (U+003B)  mods=none
+22:56:51.273 [WARN] not starting clean - attempting recovery before the hunt
+22:57:00.642 after recovery: OTHER (U+003B)
+22:57:00.645 [FAIL] cannot reach a clean baseline; aborting
+22:58:51.271 ================ kmhunt ================
+22:58:51.280 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+22:58:51.282 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+22:58:51.284 
+22:58:55.888 initial state: CLEAN  'əŋ' (U+0259 U+014B)  mods=none
+22:58:55.891 
+22:59:02.678 pass 1 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+22:59:15.792 pass 1 [B] LShift held, freeze, release INTO the freeze               -> clean  (U+0259 U+014B) mods=none
+22:59:27.804 pass 2 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+22:59:40.883 pass 2 [B] LShift held, freeze, release INTO the freeze               -> clean  (U+0259 U+014B) mods=none
+22:59:52.923 pass 3 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+23:00:05.970 pass 3 [B] LShift held, freeze, release INTO the freeze               -> clean  (U+0259 U+014B) mods=none
+23:00:11.175 
+23:00:11.177 --- RESULT ---
+23:00:11.179   no candidate wedged Keyman
+23:00:15.718   final probe: CLEAN
+23:00:15.720 ========================================
+23:02:55.166 ================ kmhunt ================
+23:02:55.177 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+23:02:55.180 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+23:02:55.182 
+23:02:59.841 initial state: CLEAN  'əŋ' (U+0259 U+014B)  mods=none
+23:02:59.844 
+23:03:06.618 pass 1 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+23:03:19.700 pass 1 [B] LShift held, freeze, release INTO the freeze               -> clean  (U+0259 U+014B) mods=none
+23:04:34.855 ================ kmhunt ================
+23:04:34.865 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+23:04:34.869 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+23:04:34.871 
+23:04:42.269 initial state: OTHER  ':EŊ' (U+003A U+0045 U+014A)  mods=LShift
+23:04:42.273 [WARN] not starting clean - attempting recovery before the hunt
+23:04:51.701 after recovery: OTHER (U+003A U+0045 U+014A)
+23:04:51.705 [FAIL] cannot reach a clean baseline; aborting
+23:06:56.968 ================ kmhunt ================
+23:06:56.987 target=notepad hwnd=0x60A6E  keyman ctrl=0x706B2  load=0
+23:06:56.992 probe: ;e then RAlt+N   CLEAN=U+0259 U+014B   WEDGED=U+0259 U+014A
+23:06:56.996 
+23:07:01.730 initial state: CLEAN  'əŋ' (U+0259 U+014B)  mods=none
+23:07:01.733 
+23:07:08.573 pass 1 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+23:07:21.689 pass 1 [I] LShift held, freeze CONFIRMED ACTIVE, then release         -> clean  (U+0259 U+014B) mods=none
+23:07:33.721 pass 2 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+23:07:46.778 pass 2 [I] LShift held, freeze CONFIRMED ACTIVE, then release         -> clean  (U+0259 U+014B) mods=none
+23:07:58.790 pass 3 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+23:08:11.864 pass 3 [I] LShift held, freeze CONFIRMED ACTIVE, then release         -> clean  (U+0259 U+014B) mods=none
+23:08:23.861 pass 4 [A] bare LShift hold 1.5s + release (no freeze)                -> clean  (U+0259 U+014B) mods=none
+23:08:36.932 pass 4 [I] LShift held, freeze CONFIRMED ACTIVE, then release         -> clean  (U+0259 U+014B) mods=none
+23:08:42.146 
+23:08:42.149 --- RESULT ---
+23:08:42.152   no candidate wedged Keyman
+23:08:46.718   final probe: CLEAN
+23:08:46.720 ========================================

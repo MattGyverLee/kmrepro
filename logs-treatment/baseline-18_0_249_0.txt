@@ -1,0 +1,31 @@
+﻿================ kmrepro BASELINE ================
+when          : 2026-08-22 17:33:25
+keyman version: 18.0.249.0
+keyman running: yes pid=32296
+controller    : 0x706B2
+LLHooksTimeout: <default>
+keyman debug  : <unset>
+
+--- T1 responsiveness (3 samples, expect all OK, low ms) ---
+  sample 1: ok=True 8ms
+  sample 2: ok=True 0ms
+  sample 3: ok=True 0ms
+
+--- T2 fakefreeze probe (post cmd 20, then measure responsiveness) ---
+  WM_KEYMAN_CONTROL = 0xC2D9
+  after cmd 20: ok=True 4704ms
+  VERDICT: FREEZE IS LIVE on this build (main thread blocked)
+
+--- T3 ghost-key burst (20 posts, idle gate 1500ms) ---
+  target: notepad hwnd=0x60A6E
+  post 5 : clean (responsive=True 0ms)
+  post 10 : clean (responsive=True 0ms)
+  post 15 : clean (responsive=True 0ms)
+  post 20 : clean (responsive=True 0ms)
+
+--- RESULT ---
+  ghost keys posted    : 20 / 20
+  phantom modifiers    : 0
+  keyman unresponsive  : 0
+  final modifiers down : none
+==================================================

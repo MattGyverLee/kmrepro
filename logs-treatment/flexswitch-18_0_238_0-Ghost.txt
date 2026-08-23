@@ -1,0 +1,14 @@
+﻿17:11:17 =========== FLEx keyboard-switch test ===========
+17:11:17 keyman version : 18.0.238.0
+17:11:17 scenario       : Ghost   iterations: 5   tabs: 7
+17:11:37   iter   1 : ok  (schwa/eng before and after switch, Eng field literal)
+17:11:57   iter   2 : ok  (schwa/eng before and after switch, Eng field literal)
+17:12:17   iter   3 : ok  (schwa/eng before and after switch, Eng field literal)
+17:12:37   iter   4 : ok  (schwa/eng before and after switch, Eng field literal)
+17:12:57   iter   5 : ok  (schwa/eng before and after switch, Eng field literal)
+17:12:57 
+17:12:57 --- RESULT ---
+17:12:57   iterations : 5
+17:12:57   failures   : 0
+17:12:57   mods down  : none
+17:12:57 ================================================

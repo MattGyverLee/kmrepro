@@ -1,0 +1,29 @@
+﻿================ kmrepro AUTOTEST ================
+when          : 2026-08-22 17:46:24
+keyman version: 18.0.249.0
+scenario      : Ghost   iterations: 15
+target        : notepad hwnd=0x60A6E tid=14788
+keyboard      : HKL=0x4090409 langid=0x0409 keymanActive=False
+[WARN] HKL does not show a Keyman langid (0x2000) in 'notepad'.
+       Not fatal - deferring to the behavioural sanity gate below.
+
+--- learned baseline (per segment) ---
+  shift    -> 'abcDEFghi'
+  deadkey  -> 'ə'
+  ralt     -> 'ŋ'
+[OK]   Keyman confirmed engaged (schwa and eng both produced)
+  combined expected = 'abcDEFghiəŋ'
+
+--- 15 iterations of scenario 'Ghost' ---
+  iter   5 : ok
+  iter  10 : ok
+  iter  15 : ok
+
+--- RESULT ---
+  scenario            : Ghost
+  iterations run      : 15
+  failures            : 0
+    of which no output: 0
+  phantom modifiers   : 0
+  final mods down     : none
+==================================================

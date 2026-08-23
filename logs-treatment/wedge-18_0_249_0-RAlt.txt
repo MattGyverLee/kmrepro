@@ -1,0 +1,292 @@
+﻿18:06:07.759 ================ kmwedge ================
+18:06:07.772 when          : 2026-08-22 18:06:07
+18:06:07.775 keyman version: 18.0.249.0
+18:06:07.778 target        : notepad hwnd=0x60A6E
+18:06:07.780 controller    : 0x706B2   WM_KEYMAN_CONTROL=0xC2D9
+18:06:07.786 held modifier : RAlt (vk=0xA5 extended=True)
+18:06:07.789 idle held     : 1400ms   sweep: 0..400 step 50   reps: 2
+18:06:07.792 also freeze   : False   load threads: 0
+18:06:09.388 learned clean output = 'əŋ' (U+0259 U+014B)
+18:06:09.392 [OK]   Keyman confirmed engaged
+18:06:09.408 
+18:06:09.416 --- sweep: 9 offsets x 2 reps = 18 iterations ---
+18:06:13.154   iter   1 delay=   0ms : FAIL [NO-OUTPUT]
+18:06:13.157              expected='əŋ' (U+0259 U+014B)
+18:06:13.160              got     ='' (<empty>)
+18:06:13.162              GetAsyncKeyState says: none
+18:06:16.241              RECOVERY: FAILED, still '' (<empty>)
+18:06:23.778   iter   3 delay=  50ms : FAIL [NO-OUTPUT]
+18:06:23.781              expected='əŋ' (U+0259 U+014B)
+18:06:23.783              got     ='' (<empty>)
+18:06:23.785              GetAsyncKeyState says: none
+18:06:26.861              RECOVERY: FAILED, still '' (<empty>)
+18:06:34.495   iter   5 delay= 100ms : FAIL [NO-OUTPUT]
+18:06:34.499              expected='əŋ' (U+0259 U+014B)
+18:06:34.501              got     ='' (<empty>)
+18:06:34.503              GetAsyncKeyState says: none
+18:06:37.548              RECOVERY: FAILED, still '' (<empty>)
+18:06:45.269   iter   7 delay= 150ms : FAIL [NO-OUTPUT]
+18:06:45.271              expected='əŋ' (U+0259 U+014B)
+18:06:45.272              got     ='' (<empty>)
+18:06:45.274              GetAsyncKeyState says: none
+18:06:48.310              RECOVERY: FAILED, still '' (<empty>)
+18:06:56.118   iter   9 delay= 200ms : FAIL [NO-OUTPUT]
+18:06:56.122              expected='əŋ' (U+0259 U+014B)
+18:06:56.124              got     ='' (<empty>)
+18:06:56.126              GetAsyncKeyState says: none
+18:06:59.184              RECOVERY: FAILED, still '' (<empty>)
+18:07:03.042   iter  10 delay= 200ms : ok
+18:07:07.014   iter  11 delay= 250ms : FAIL [NO-OUTPUT]
+18:07:07.016              expected='əŋ' (U+0259 U+014B)
+18:07:07.019              got     ='' (<empty>)
+18:07:07.020              GetAsyncKeyState says: none
+18:07:10.063              RECOVERY: FAILED, still '' (<empty>)
+18:07:18.004   iter  13 delay= 300ms : FAIL [NO-OUTPUT]
+18:07:18.006              expected='əŋ' (U+0259 U+014B)
+18:07:18.008              got     ='' (<empty>)
+18:07:18.010              GetAsyncKeyState says: none
+18:07:21.090              RECOVERY: FAILED, still '' (<empty>)
+18:07:29.188   iter  15 delay= 350ms : FAIL [NO-OUTPUT]
+18:07:29.190              expected='əŋ' (U+0259 U+014B)
+18:07:29.191              got     ='' (<empty>)
+18:07:29.194              GetAsyncKeyState says: none
+18:07:32.245              RECOVERY: FAILED, still '' (<empty>)
+18:07:40.511   iter  17 delay= 400ms : FAIL [NO-OUTPUT]
+18:07:40.514              expected='əŋ' (U+0259 U+014B)
+18:07:40.516              got     ='' (<empty>)
+18:07:40.518              GetAsyncKeyState says: none
+18:07:43.623              RECOVERY: FAILED, still '' (<empty>)
+18:07:47.683 
+18:07:47.685 --- RESULT ---
+18:07:47.686   held modifier        : RAlt
+18:07:47.688   iterations           : 18
+18:07:47.690   failures             : 9
+18:07:47.695     of which no output : 9
+18:07:47.699   phantom modifiers    : 0
+18:07:47.702   recovered by tapping : 0
+18:07:47.705   final mods held      : none
+18:07:47.708 =========================================
+18:07:47.711 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\wedge-18_0_249_0-RAlt.txt
+18:08:54.425 ================ kmwedge ================
+18:08:54.436 when          : 2026-08-22 18:08:54
+18:08:54.439 keyman version: 18.0.249.0
+18:08:54.443 target        : notepad hwnd=0x60A6E
+18:08:54.445 controller    : 0x706B2   WM_KEYMAN_CONTROL=0xC2D9
+18:08:54.450 held modifier : RAlt (vk=0xA5 extended=True)
+18:08:54.452 idle held     : 1400ms   sweep: 0..200 step 50   reps: 2
+18:08:54.454 also freeze   : False   load threads: 0
+18:08:54.457 no-ghost ctrl : True   dismiss menu: False
+18:08:54.460 [INFO] CONTROL RUN: the ghost key is NOT posted, so the watchdog is never
+18:08:54.463        provoked. Failures here are harness artifacts (e.g. a bare Alt press
+18:08:54.466        activating the menu bar), NOT Keyman defects.
+18:08:56.052 learned clean output = 'əŋ' (U+0259 U+014B)
+18:08:56.056 [OK]   Keyman confirmed engaged
+18:08:56.058 
+18:08:56.064 --- sweep: 5 offsets x 2 reps = 10 iterations ---
+18:08:59.782   iter   1 delay=   0ms : FAIL [NO-OUTPUT]
+18:08:59.785              expected='əŋ' (U+0259 U+014B)
+18:08:59.788              got     ='' (<empty>)
+18:08:59.790              GetAsyncKeyState says: none
+18:09:02.867              RECOVERY: FAILED, still '' (<empty>)
+18:09:10.349   iter   3 delay=  50ms : FAIL [NO-OUTPUT]
+18:09:10.352              expected='əŋ' (U+0259 U+014B)
+18:09:10.355              got     ='' (<empty>)
+18:09:10.358              GetAsyncKeyState says: none
+18:09:13.474              RECOVERY: FAILED, still '' (<empty>)
+18:09:21.072   iter   5 delay= 100ms : FAIL [NO-OUTPUT]
+18:09:21.074              expected='əŋ' (U+0259 U+014B)
+18:09:21.077              got     ='' (<empty>)
+18:09:21.079              GetAsyncKeyState says: none
+18:09:24.191              RECOVERY: FAILED, still '' (<empty>)
+18:09:31.923   iter   7 delay= 150ms : FAIL [NO-OUTPUT]
+18:09:31.925              expected='əŋ' (U+0259 U+014B)
+18:09:31.928              got     ='' (<empty>)
+18:09:31.931              GetAsyncKeyState says: none
+18:09:34.995              RECOVERY: FAILED, still '' (<empty>)
+18:09:42.738   iter   9 delay= 200ms : FAIL [NO-OUTPUT]
+18:09:42.740              expected='əŋ' (U+0259 U+014B)
+18:09:42.743              got     ='' (<empty>)
+18:09:42.744              GetAsyncKeyState says: none
+18:09:45.804              RECOVERY: FAILED, still '' (<empty>)
+18:09:49.677   iter  10 delay= 200ms : ok
+18:09:49.680 
+18:09:49.682 --- RESULT ---
+18:09:49.683   held modifier        : RAlt
+18:09:49.685   iterations           : 10
+18:09:49.687   failures             : 5
+18:09:49.689     of which no output : 5
+18:09:49.691   phantom modifiers    : 0
+18:09:49.693   recovered by tapping : 0
+18:09:49.695   final mods held      : none
+18:09:49.696 =========================================
+18:09:49.699 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\wedge-18_0_249_0-RAlt.txt
+18:10:09.891 ================ kmwedge ================
+18:10:09.902 when          : 2026-08-22 18:10:09
+18:10:09.904 keyman version: 18.0.249.0
+18:10:09.907 target        : notepad hwnd=0x60A6E
+18:10:09.910 controller    : 0x706B2   WM_KEYMAN_CONTROL=0xC2D9
+18:10:09.915 held modifier : RAlt (vk=0xA5 extended=True)
+18:10:09.918 idle held     : 1400ms   sweep: 0..200 step 50   reps: 2
+18:10:09.920 also freeze   : False   load threads: 0
+18:10:09.921 no-ghost ctrl : True   dismiss menu: True
+18:10:09.924 [INFO] CONTROL RUN: the ghost key is NOT posted, so the watchdog is never
+18:10:09.927        provoked. Failures here are harness artifacts (e.g. a bare Alt press
+18:10:09.929        activating the menu bar), NOT Keyman defects.
+18:10:11.547 learned clean output = 'əŋ' (U+0259 U+014B)
+18:10:11.552 [OK]   Keyman confirmed engaged
+18:10:11.554 
+18:10:11.560 --- sweep: 5 offsets x 2 reps = 10 iterations ---
+18:10:32.712   iter   5 delay= 100ms : ok
+18:10:54.425   iter  10 delay= 200ms : ok
+18:10:54.427 
+18:10:54.431 --- RESULT ---
+18:10:54.432   held modifier        : RAlt
+18:10:54.434   iterations           : 10
+18:10:54.436   failures             : 0
+18:10:54.438     of which no output : 0
+18:10:54.441   phantom modifiers    : 0
+18:10:54.443   recovered by tapping : 0
+18:10:54.445   final mods held      : none
+18:10:54.447 =========================================
+18:10:54.449 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\wedge-18_0_249_0-RAlt.txt
+18:11:11.935 ================ kmwedge ================
+18:11:11.946 when          : 2026-08-22 18:11:11
+18:11:11.948 keyman version: 18.0.249.0
+18:11:11.952 target        : notepad hwnd=0x60A6E
+18:11:11.954 controller    : 0x706B2   WM_KEYMAN_CONTROL=0xC2D9
+18:11:11.959 held modifier : RAlt (vk=0xA5 extended=True)
+18:11:11.962 idle held     : 1400ms   sweep: 0..400 step 50   reps: 3
+18:11:11.964 also freeze   : False   load threads: 0
+18:11:11.966 no-ghost ctrl : False   dismiss menu: True
+18:11:13.556 learned clean output = 'əŋ' (U+0259 U+014B)
+18:11:13.567 [OK]   Keyman confirmed engaged
+18:11:13.571 
+18:11:13.576 --- sweep: 9 offsets x 3 reps = 27 iterations ---
+18:11:17.926   iter   1 delay=   0ms : FAIL [NO-OUTPUT]
+18:11:17.928              expected='əŋ' (U+0259 U+014B)
+18:11:17.930              got     ='' (<empty>)
+18:11:17.932              GetAsyncKeyState says: none
+18:11:21.066              RECOVERY: FAILED, still '' (<empty>)
+18:11:37.814   iter   5 delay=  50ms : ok
+18:11:59.119   iter  10 delay= 150ms : ok
+18:12:20.830   iter  15 delay= 200ms : ok
+18:12:43.018   iter  20 delay= 300ms : ok
+18:13:05.577   iter  25 delay= 400ms : ok
+18:13:14.727 
+18:13:14.729 --- RESULT ---
+18:13:14.731   held modifier        : RAlt
+18:13:14.732   iterations           : 27
+18:13:14.734   failures             : 1
+18:13:14.736     of which no output : 1
+18:13:14.738   phantom modifiers    : 0
+18:13:14.739   recovered by tapping : 0
+18:13:14.743   final mods held      : none
+18:13:14.745 =========================================
+18:13:14.748 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\wedge-18_0_249_0-RAlt.txt
+18:13:37.693 ================ kmwedge ================
+18:13:37.704 when          : 2026-08-22 18:13:37
+18:13:37.707 keyman version: 18.0.249.0
+18:13:37.711 target        : notepad hwnd=0x60A6E
+18:13:37.714 controller    : 0x706B2   WM_KEYMAN_CONTROL=0xC2D9
+18:13:37.719 held modifier : RAlt (vk=0xA5 extended=True)
+18:13:37.722 idle held     : 1400ms   sweep: 0..400 step 50   reps: 3
+18:13:37.725 also freeze   : False   load threads: 8
+18:13:37.727 no-ghost ctrl : False   dismiss menu: True
+18:13:39.158 [INFO] started 8 background CPU hogs to emulate a slow machine
+18:13:42.790 learned clean output = 'əŋ' (U+0259 U+014B)
+18:13:42.795 [OK]   Keyman confirmed engaged
+18:13:42.797 
+18:13:42.803 --- sweep: 9 offsets x 3 reps = 27 iterations ---
+18:14:03.785   iter   5 delay=  50ms : ok
+18:14:25.085   iter  10 delay= 150ms : ok
+18:14:46.831   iter  15 delay= 200ms : ok
+18:15:09.080   iter  20 delay= 300ms : ok
+18:15:31.668   iter  25 delay= 400ms : ok
+18:15:40.817 
+18:15:40.840 --- RESULT ---
+18:15:40.845   held modifier        : RAlt
+18:15:40.850   iterations           : 27
+18:15:40.854   failures             : 0
+18:15:40.859     of which no output : 0
+18:15:40.863   phantom modifiers    : 0
+18:15:40.866   recovered by tapping : 0
+18:15:40.868   final mods held      : none
+18:15:40.871 =========================================
+18:15:42.023 [INFO] stopped background CPU load
+18:15:42.026 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\wedge-18_0_249_0-RAlt.txt
+18:16:02.085 ================ kmwedge ================
+18:16:02.094 when          : 2026-08-22 18:16:02
+18:16:02.097 keyman version: 18.0.249.0
+18:16:02.100 target        : notepad hwnd=0x60A6E
+18:16:02.103 controller    : 0x706B2   WM_KEYMAN_CONTROL=0xC2D9
+18:16:02.107 held modifier : RAlt (vk=0xA5 extended=True)
+18:16:02.109 idle held     : 1400ms   sweep: 0..400 step 100   reps: 2
+18:16:02.110 also freeze   : True   load threads: 32
+18:16:02.113 no-ghost ctrl : False   dismiss menu: True
+18:16:07.774 [INFO] started 32 background CPU hogs to emulate a slow machine
+18:16:11.415 learned clean output = 'əŋ' (U+0259 U+014B)
+18:16:11.420 [OK]   Keyman confirmed engaged
+18:16:11.422 
+18:16:11.429 --- sweep: 5 offsets x 2 reps = 10 iterations ---
+18:16:16.633   iter   1 delay=   0ms : FAIL [NO-OUTPUT]
+18:16:16.636              expected='əŋ' (U+0259 U+014B)
+18:16:16.639              got     ='' (<empty>)
+18:16:16.642              GetAsyncKeyState says: none
+18:16:20.089              RECOVERY: FAILED, still '' (<empty>)
+18:16:31.311   iter   2 delay=   0ms : FAIL [NO-OUTPUT]
+18:16:31.314              expected='əŋ' (U+0259 U+014B)
+18:16:31.317              got     ='' (<empty>)
+18:16:31.319              GetAsyncKeyState says: none
+18:16:34.767              RECOVERY: FAILED, still '' (<empty>)
+18:16:46.031   iter   3 delay= 100ms : FAIL [NO-OUTPUT]
+18:16:46.034              expected='əŋ' (U+0259 U+014B)
+18:16:46.036              got     ='' (<empty>)
+18:16:46.038              GetAsyncKeyState says: none
+18:16:49.448              RECOVERY: FAILED, still '' (<empty>)
+18:17:00.731   iter   4 delay= 100ms : FAIL [NO-OUTPUT]
+18:17:00.735              expected='əŋ' (U+0259 U+014B)
+18:17:00.738              got     ='' (<empty>)
+18:17:00.740              GetAsyncKeyState says: none
+18:17:04.200              RECOVERY: FAILED, still '' (<empty>)
+18:17:15.618   iter   5 delay= 200ms : FAIL [NO-OUTPUT]
+18:17:15.620              expected='əŋ' (U+0259 U+014B)
+18:17:15.623              got     ='' (<empty>)
+18:17:15.625              GetAsyncKeyState says: none
+18:17:19.207              RECOVERY: FAILED, still '' (<empty>)
+18:17:31.195   iter   6 delay= 200ms : FAIL [NO-OUTPUT]
+18:17:31.648              expected='əŋ' (U+0259 U+014B)
+18:17:32.124              got     ='' (<empty>)
+18:17:32.567              GetAsyncKeyState says: none
+18:17:36.153              RECOVERY: FAILED, still '' (<empty>)
+18:17:48.404   iter   7 delay= 300ms : FAIL [NO-OUTPUT]
+18:17:48.829              expected='əŋ' (U+0259 U+014B)
+18:17:49.287              got     ='' (<empty>)
+18:17:49.731              GetAsyncKeyState says: none
+18:17:53.375              RECOVERY: FAILED, still '' (<empty>)
+18:18:05.666   iter   8 delay= 300ms : FAIL [NO-OUTPUT]
+18:18:06.080              expected='əŋ' (U+0259 U+014B)
+18:18:06.506              got     ='' (<empty>)
+18:18:06.915              GetAsyncKeyState says: none
+18:18:10.498              RECOVERY: FAILED, still '' (<empty>)
+18:18:22.690   iter   9 delay= 400ms : FAIL [NO-OUTPUT]
+18:18:23.100              expected='əŋ' (U+0259 U+014B)
+18:18:23.515              got     ='' (<empty>)
+18:18:23.893              GetAsyncKeyState says: none
+18:18:27.464              RECOVERY: FAILED, still '' (<empty>)
+18:18:39.712   iter  10 delay= 400ms : FAIL [NO-OUTPUT]
+18:18:40.113              expected='əŋ' (U+0259 U+014B)
+18:18:40.539              got     ='' (<empty>)
+18:18:40.958              GetAsyncKeyState says: none
+18:18:44.486              RECOVERY: FAILED, still '' (<empty>)
+18:18:50.844 
+18:18:51.255 --- RESULT ---
+18:18:51.635   held modifier        : RAlt
+18:18:52.003   iterations           : 10
+18:18:52.386   failures             : 10
+18:18:52.781     of which no output : 10
+18:18:53.168   phantom modifiers    : 0
+18:18:53.580   recovered by tapping : 0
+18:18:53.970   final mods held      : none
+18:18:54.387 =========================================
+18:20:01.600 [INFO] stopped background CPU load
+18:20:01.603 [OK] report -> C:\Users\thoua\AppData\Local\Temp\kmrepro\wedge-18_0_249_0-RAlt.txt

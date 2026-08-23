@@ -1,0 +1,40 @@
+﻿================ kmrepro BASELINE ================
+when          : 2026-08-22 16:10:25
+keyman version: 18.0.238.0
+keyman running: yes pid=27564
+controller    : 0x60EF6
+LLHooksTimeout: <default>
+keyman debug  : <unset>
+
+--- T1 responsiveness (3 samples, expect all OK, low ms) ---
+================ kmrepro BASELINE ================
+when          : 2026-08-22 16:10:51
+keyman version: 18.0.238.0
+keyman running: yes pid=27564
+controller    : 0x60EF6
+LLHooksTimeout: <default>
+keyman debug  : <unset>
+
+--- T1 responsiveness (3 samples, expect all OK, low ms) ---
+  sample 1: ok=True 8ms
+  sample 2: ok=True 0ms
+  sample 3: ok=True 0ms
+
+--- T2 fakefreeze probe (post cmd 20, then measure responsiveness) ---
+  WM_KEYMAN_CONTROL = 0xC2E2
+  after cmd 20: ok=True 0ms
+  VERDICT: cmd 20 is INERT on this build (no watchdog code)
+
+--- T3 ghost-key burst (20 posts, idle gate 1500ms) ---
+  target: notepad hwnd=0x30DB6
+  post 5 : clean (responsive=True 0ms)
+  post 10 : clean (responsive=True 0ms)
+  post 15 : clean (responsive=True 0ms)
+  post 20 : clean (responsive=True 0ms)
+
+--- RESULT ---
+  ghost keys posted    : 20 / 20
+  phantom modifiers    : 0
+  keyman unresponsive  : 0
+  final modifiers down : none
+==================================================

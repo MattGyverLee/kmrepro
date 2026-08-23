@@ -1,0 +1,14 @@
+﻿17:57:35 =========== FLEx keyboard-switch test ===========
+17:57:35 keyman version : 18.0.249.0
+17:57:35 scenario       : Freeze   iterations: 5   tabs: 7
+17:57:54   iter   1 : ok  (schwa/eng before and after switch, Eng field literal)
+17:58:12   iter   2 : ok  (schwa/eng before and after switch, Eng field literal)
+17:58:32   iter   3 : ok  (schwa/eng before and after switch, Eng field literal)
+17:58:50   iter   4 : ok  (schwa/eng before and after switch, Eng field literal)
+17:59:10   iter   5 : ok  (schwa/eng before and after switch, Eng field literal)
+17:59:10 
+17:59:10 --- RESULT ---
+17:59:10   iterations : 5
+17:59:10   failures   : 0
+17:59:10   mods down  : none
+17:59:10 ================================================

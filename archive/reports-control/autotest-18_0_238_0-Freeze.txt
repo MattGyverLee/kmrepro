@@ -1,0 +1,38 @@
+﻿================ kmrepro AUTOTEST ================
+when          : 2026-08-22 16:16:35
+keyman version: 18.0.238.0
+scenario      : Freeze   iterations: 10
+target        : notepad hwnd=0x30DB6 tid=39096
+keyboard      : HKL=0x4092000 langid=0x2000 keymanActive=True
+
+--- learned baseline ---
+  expected output = 'abcDEFghi'
+
+--- 10 iterations of scenario 'Freeze' ---
+================ kmrepro AUTOTEST ================
+when          : 2026-08-22 16:23:57
+keyman version: 18.0.238.0
+scenario      : Freeze   iterations: 15
+target        : notepad hwnd=0x30DB6 tid=39096
+keyboard      : HKL=0x4092000 langid=0x2000 keymanActive=True
+
+--- learned baseline (per segment) ---
+  shift    -> 'abcDEFghi'
+  deadkey  -> 'ə'
+  ralt     -> 'ŋ'
+[OK]   Keyman confirmed engaged (schwa and eng both produced)
+  combined expected = 'abcDEFghiəŋ'
+
+--- 15 iterations of scenario 'Freeze' ---
+  iter   5 : ok
+  iter  10 : ok
+  iter  15 : ok
+
+--- RESULT ---
+  scenario            : Freeze
+  iterations run      : 15
+  failures            : 0
+    of which no output: 0
+  phantom modifiers   : 0
+  final mods down     : none
+==================================================

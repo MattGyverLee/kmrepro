@@ -1,0 +1,43 @@
+﻿17:04:54 =========== FLEx keyboard-switch test ===========
+17:04:54 keyman version : 18.0.238.0
+17:04:54 scenario       : Clean   iterations: 1   tabs: 7
+17:05:22   iter   1 : FAIL eng-literal(got '' <empty>) | ngq-deadkey-AFTER-SWITCH(got '' <empty>) | ngq-ralt-AFTER-SWITCH(got '' <empty>)
+17:05:22 
+17:05:22 --- RESULT ---
+17:05:22   iterations : 1
+17:05:22   failures   : 1
+17:05:22   mods down  : none
+17:05:22 ================================================
+17:06:55 =========== FLEx keyboard-switch test ===========
+17:06:55 keyman version : 18.0.238.0
+17:06:56 scenario       : Clean   iterations: 1   tabs: 7
+17:07:22   iter   1 : FAIL eng-literal(got '' <empty>) | ngq-deadkey-AFTER-SWITCH(got '' <empty>) | ngq-ralt-AFTER-SWITCH(got '' <empty>)
+17:07:22 
+17:07:22 --- RESULT ---
+17:07:22   iterations : 1
+17:07:22   failures   : 1
+17:07:22   mods down  : none
+17:07:22 ================================================
+17:08:07 =========== FLEx keyboard-switch test ===========
+17:08:07 keyman version : 18.0.238.0
+17:08:07 scenario       : Clean   iterations: 1   tabs: 7
+17:08:20          [trace] after Tab x7 : hkl=KEYMAN mods=none
+17:08:29          [trace] after Shift+Tab x7 : hkl=US-MS
+17:08:35   iter   1 : FAIL eng-literal(got '' <empty>) | ngq-deadkey-AFTER-SWITCH(got '' <empty>) | ngq-ralt-AFTER-SWITCH(got '' <empty>)
+17:08:35 
+17:08:35 --- RESULT ---
+17:08:35   iterations : 1
+17:08:35   failures   : 1
+17:08:35   mods down  : none
+17:08:35 ================================================
+17:10:20 =========== FLEx keyboard-switch test ===========
+17:10:20 keyman version : 18.0.238.0
+17:10:20 scenario       : Clean   iterations: 2   tabs: 7
+17:10:39   iter   1 : ok  (schwa/eng before and after switch, Eng field literal)
+17:10:57   iter   2 : ok  (schwa/eng before and after switch, Eng field literal)
+17:10:57 
+17:10:57 --- RESULT ---
+17:10:57   iterations : 2
+17:10:57   failures   : 0
+17:10:57   mods down  : none
+17:10:57 ================================================
