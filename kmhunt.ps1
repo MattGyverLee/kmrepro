@@ -76,7 +76,13 @@ $ENG   = [string][char]0x014B   # lowercase eng - the clean result
 $ENGUP = [string][char]0x014A   # CAPITAL eng  - the wedged result
 
 $log = Join-Path $LogDir 'hunt.txt'
-function Say([string]$t) { $l = '{0} {1}' -f (Get-Date -Format 'HH:mm:ss.fff'), $t; Write-Host $l; Add-Content -Path $log -Value $l -Encoding utf8 }
+# Write-Host measured at 4301 ms/line on this machine once the console host is
+# congested, vs 0.4 ms for [Console]::Out.WriteLine (Add-Content is 1.8 ms, so it
+# is not the file I/O). That is a CORRECTNESS bug here, not just slowness: Say is
+# called between a candidate's trigger and the probe, and from inside candidate
+# I's action, so seconds of dead time let a 5s freeze expire before the probe and
+# silently degrade a trial into a no-freeze control. See TRIGGER.md harness traps.
+function Say([string]$t) { $l = '{0} {1}' -f (Get-Date -Format 'HH:mm:ss.fff'), $t; [Console]::Out.WriteLine($l); Add-Content -Path $log -Value $l -Encoding utf8 }
 
 function Kd([int]$v, [switch]$E) { $f = 0; if ($E) { $f = $EXT }; [Kh.N]::keybd_event([byte]$v, [byte][Kh.N]::MapVirtualKey($v,0), $f, [UIntPtr]::Zero) }
 function Ku([int]$v, [switch]$E) { $f = $UP; if ($E) { $f = $f -bor $EXT }; [Kh.N]::keybd_event([byte]$v, [byte][Kh.N]::MapVirtualKey($v,0), $f, [UIntPtr]::Zero) }

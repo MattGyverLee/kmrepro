@@ -19,6 +19,28 @@ A clean 3/3, B wedged 3/3, differing in one line). Code refs are from
    the system queue. Modifiers additionally post
    `WM_KEYMAN_MODIFIER_EVENT` at `:198-202`.
 
+2a. **That modifier post is NOT gated on a Keyman keyboard being active.**
+   `:198` fires on `isModifierKey(vkCode) && flag_ShouldSerializeInput` only. The
+   `!isKeymanKeyboardActive` pass-through at `:233` is **35 lines later** and does
+   not guard it. So the cache is updated for *every modifier keystroke on the
+   machine*, whichever keyboard is active, while it is only *consumed* when a
+   Keyman keyboard is active.
+
+   Measured 3/3: five triggers applied with the **Microsoft** Cameroon layout
+   active leave its output byte-perfect, then switching to Keyman reveals it
+   already wedged. Charge while inactive, fire on activation
+   (`kmproof.ps1 -ChargeTest`).
+
+   This is why the bug looked intermittent for years: "no Keyman keyboard was
+   active, so Keyman is uninvolved" is false reasoning, and it is exactly the
+   reasoning that kept getting applied.
+
+   **Do not fix this by gating the post on `isKeymanKeyboardActive`.** Per the
+   comment at `:193` (#7337) the post exists to keep the serialized queue in sync
+   across keystrokes Keyman does not otherwise process; suppressing it trades this
+   bug for a different desync. Fix #1 below already handles it, because it
+   corrects the cache immediately before use.
+
 3. **If the thread stalls, Windows drops the event.**
    Windows enforces `LowLevelHooksTimeout`; a hook that does not return in time is
    bypassed (and can be evicted). Keyman therefore **never observes that KEYUP**.
@@ -109,11 +131,24 @@ and cheaper than "restart Keyman".
 - The stall is induced with `KMC_WATCHDOG_FAKEFREEZE`, a **debug-only** command.
   The mechanism is proven; the *field* path that stalls that thread is not. CPU
   load alone (32 hogs / 16 cores) did **not** reproduce it.
-- The **US-layout control was never run**, so "Keyman is required" is a strong
-  inference from the code path, not a measured fact. Run it before asserting it.
-- Every reproduced wedge here cleared on the next KEYUP. The field reports
-  describe persistence until a Keyman restart; that gap is unexplained and may
-  indicate a second contributing factor.
+- ~~The **US-layout control was never run**, so "Keyman is required" is a strong
+  inference from the code path, not a measured fact.~~ **Now measured** — see
+  `TRIGGER.md` §3. Three-arm controlled test, same stimulus and load throughout:
+  US English **0/10** wedged, Microsoft Cameroon QWERTY 2017 **0/10** wedged
+  (output byte-identical to Keyman's when working), Keyman wedged. Switch-only
+  control with no stall: 0/10. "Keyman is required" is a fact, not an inference.
+- **Blast radius is wider than this document implies.** Once wedged, *every*
+  keyboard on the machine is affected — US and the Microsoft Cameroon layout both
+  produce capitals with no trigger applied to them, because `keybd_shift_reset()`
+  presses Shift *for real* with no matching KEYUP and `GetAsyncKeyState` agrees it
+  is held. Ctrl+A is delivered as Ctrl+Shift+A system-wide. The user-visible bug
+  is a stuck Shift across the whole machine, not a Keyman-typing glitch. Lead the
+  PR with that.
+- Every reproduced wedge here cleared on the next KEYUP — with one exception
+  worth noting: one run went from wedged to **emitting nothing at all** under the
+  same six-modifier sweep. So recovery is reliable but not guaranteed. The field
+  reports describe persistence until a Keyman restart; that gap is unexplained and
+  may indicate a second contributing factor.
 - The **watchdog hypothesis this investigation started from is not supported** —
   the ghost key was absent from every reproducing run.
 - `serialkeyeventserver.cpp` ends in `#endif // !_WIN64`. Confirm the equivalent

@@ -233,9 +233,23 @@ These cost hours and twice corrupted live language data.
 2. **PowerShell variable names are case-insensitive.** `$EXT` (constant) collided
    with `$Ext` (switch parameter). Same class of bug: a helper named `R` resolved
    to the built-in alias for `Invoke-History` — aliases outrank functions.
-3. **`GetKeyboardLayout()` does NOT track TSF profile switches.** It reported the
-   Keyman HKL while FLEx's writing-system combo had already flipped to English.
-   **Never use the HKL as the oracle — type and read back instead.**
+3. **`GetKeyboardLayout()` — partly rehabilitated, but still not the oracle in
+   FLEx.** The Notepad half of this was a wrong-thread artifact: multi-threaded UI
+   apps keep the top-level frame window on a thread pinned at `0x0409` for the
+   life of the process, while the focused edit control sits on a different thread
+   that does track the input locale. `GetWindowThreadProcessId(MainWindowHandle)`
+   reads the frame thread and is stale forever. Resolve from
+   `GetGUIThreadInfo(0).hwndFocus` and it discriminates cleanly — verified by
+   same-thread A/B on 2026-08-23 (Keyman `0x04092000`, MS Cameroon `0xF0C00436`,
+   US `0x04090409`). `kmproof.ps1` relies on this; `kmflex.ps1`'s `Get-Hkl` now
+   returns both readings plus a `Diverged` flag.
+
+   **The FLEx observation above is NOT explained by that, and is not retracted.**
+   FLEx changes keyboards *programmatically* from its writing-system combo, which
+   is a different path from a user TSF switch and may not update any thread's HKL
+   promptly. That case has not been re-tested with the focus-thread fix. So in
+   FLEx: still **type and read back**; treat the HKL as a hint and check
+   `Diverged`. In Notepad the HKL is now trustworthy.
 4. **In FLEx, never send Home/End/Ctrl+A.** RootSite treats them as record-wide
    navigation; the caret leaves the field.
 5. **In FLEx, never collapse a selection with Right at end-of-field.** It moves to

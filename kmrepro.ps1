@@ -132,7 +132,8 @@ function Get-ModsDownString($snap) {
 
 function Write-Log($msg) {
   $line = "{0} {1}" -f (Get-Date -Format 'HH:mm:ss.fff'), $msg
-  Write-Host $line
+  # NOT Write-Host: 4301 ms/line vs 0.4 ms once conhost congests. See TRIGGER.md.
+  [Console]::Out.WriteLine($line)
   Add-Content -Path "$LogDir\kmrepro.log" -Value $line -Encoding utf8
 }
 

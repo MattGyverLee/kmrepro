@@ -517,11 +517,32 @@ Two further notes from source:
 
 ### Consequence for the fix
 
-A fix that only re-validates on the Keyman path is insufficient. The cache is
-corrupted while Keyman is a bystander, so either the modifier post must respect
-`isKeymanKeyboardActive` too, or — better, and what `FIX-PROPOSAL.md` already
-argues — `m_ModifierKeyboardState[]` must be reconciled against the OS at the
-start of every injected batch, with the OS winning.
+`FIX-PROPOSAL.md`'s fix #1 — reconcile `m_ModifierKeyboardState[]` against the OS
+at the start of every injected batch, OS wins — **is still sufficient**, and this
+finding strengthens the case for it.
+
+That is worth stating carefully, because it is easy to get backwards. Injection
+only happens when a Keyman keyboard *is* active, so a resync at batch start
+corrects the cache immediately before it is used, whatever corrupted it and
+whenever. It does not matter that the corruption occurred while Keyman was a
+bystander.
+
+What this finding does change:
+
+- **It rules out any fix based on preventing the corruption instead of correcting
+  it.** Gating the modifier post on `isKeymanKeyboardActive` looks attractive and
+  is the wrong move: the post at `:198` exists precisely to keep the serialized
+  queue in sync across keystrokes Keyman does not otherwise see. Suppressing it
+  would trade this bug for a different desync. Correct-before-use beats
+  prevent-corruption here.
+- **It invalidates a diagnostic shortcut.** "No Keyman keyboard was active, so
+  Keyman's state is fine" is false, and it is the reasoning that made this bug
+  look intermittent for years. Anything asserting Keyman is uninvolved because its
+  keyboard was inactive needs re-examining.
+- **It raises the priority of fix #3** (the idle invariant: if a cached modifier
+  says held while `GetAsyncKeyState` says up, clear it). Corruption can now sit
+  latent and invisible for an arbitrarily long time before firing, so self-healing
+  while idle is worth more than the original write-up implies.
 
 ### Scope limits of this proof
 

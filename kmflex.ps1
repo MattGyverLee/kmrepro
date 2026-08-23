@@ -64,6 +64,26 @@ Add-Type -Namespace Fx -Name N -MemberDefinition @'
 '@
 [void][Fx.N]::SetProcessDPIAware()
 
+# Separate type because a -MemberDefinition block cannot declare a struct.
+# Needed so Get-Hkl can resolve the FOCUSED control's thread rather than the
+# foreground window's thread - see the comment on Get-Hkl.
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+[StructLayout(LayoutKind.Sequential)]
+public struct FxRect { public int Left, Top, Right, Bottom; }
+[StructLayout(LayoutKind.Sequential)]
+public struct FxGuiThreadInfo {
+  public int cbSize;
+  public int flags;
+  public IntPtr hwndActive, hwndFocus, hwndCapture, hwndMenuOwner, hwndMoveSize, hwndCaret;
+  public FxRect rcCaret;
+}
+public static class FxG {
+  [DllImport("user32.dll")] public static extern bool GetGUIThreadInfo(uint idThread, ref FxGuiThreadInfo gti);
+}
+'@
+
 $FLAG_KEYUP = 0x0002
 $FLAG_EXT   = 0x0001
 
@@ -103,13 +123,62 @@ function Get-KeymanController {
 
 function Format-Codepoints2([string]$x) { if ([string]::IsNullOrEmpty($x)) { '<empty>' } else { (($x.ToCharArray()|%{ 'U+{0:X4}' -f [int]$_ }) -join ' ') } }
 
+# Resolve the keyboard from the FOCUSED control's thread, not the foreground
+# window's thread. Those differ in multi-threaded UI apps: on Win11 Notepad the
+# top-level frame window sits on a thread pinned at 0x0409 for the life of the
+# process, while the focused edit control lives on another thread that does track
+# the input locale. Reading the frame thread is what produced this repo's
+# long-standing "GetKeyboardLayout is an unreliable oracle" conclusion - it was
+# reporting the truth about the wrong thread. Verified by same-thread A/B on
+# 2026-08-23: Keyman 0x04092000, MS Cameroon 0xF0C00436, US 0x04090409.
+#
+# Both readings are returned. Keyboard/Hkl/LangId now come from the focus thread;
+# FrameHkl/FrameLangId preserve the old foreground-thread values so a divergence
+# is visible rather than silently swallowed.
+#
+# NOTE: verified against Notepad only. Not yet re-verified inside FieldWorks,
+# where the previous code was reported to work - if FLEx disagrees, compare
+# Keyboard against FrameKeyboard before trusting either.
 function Get-Hkl {
+  $fg = [Fx.N]::GetForegroundWindow()
   $p = 0
-  $t = [Fx.N]::GetWindowThreadProcessId([Fx.N]::GetForegroundWindow(), [ref]$p)
-  $h = [Fx.N]::GetKeyboardLayout($t)
-  $l = $h.ToInt64() -band 0xFFFF
-  $tag = if ($l -eq 0x2000) { 'KEYMAN' } elseif ($l -eq 0x409) { 'US-MS' } else { "other" }
-  [pscustomobject]@{ Hkl = ('0x{0:X8}' -f $h.ToInt64()); LangId = ('0x{0:X4}' -f $l); Keyboard = $tag }
+  $frameTid = [Fx.N]::GetWindowThreadProcessId($fg, [ref]$p)
+  $frameH   = [Fx.N]::GetKeyboardLayout($frameTid)
+  $frameL   = $frameH.ToInt64() -band 0xFFFF
+
+  $focusH = $frameH
+  $focusL = $frameL
+  $g = New-Object FxGuiThreadInfo
+  $g.cbSize = [System.Runtime.InteropServices.Marshal]::SizeOf($g)
+  if ([FxG]::GetGUIThreadInfo(0, [ref]$g)) {
+    $hwnd = $g.hwndFocus
+    if ($hwnd -eq [IntPtr]::Zero) { $hwnd = $g.hwndActive }
+    if ($hwnd -ne [IntPtr]::Zero) {
+      $p2 = 0
+      $ft = [Fx.N]::GetWindowThreadProcessId($hwnd, [ref]$p2)
+      $focusH = [Fx.N]::GetKeyboardLayout($ft)
+      $focusL = $focusH.ToInt64() -band 0xFFFF
+    }
+  }
+
+  # Compare the FULL hkl for US: en-US can carry a second input method (Dvorak
+  # lands as high word 0xF002), on which an ASCII probe would silently lie.
+  $tagOf = {
+    param($l, $h)
+    if ($l -eq 0x2000) { return 'KEYMAN' }
+    if ($l -eq 0x0436) { return 'CAM-MS' }
+    if ($l -eq 0x0409) { if ((($h -shr 16) -band 0xFFFF) -eq 0x0409) { return 'US-MS' } else { return 'en-US-other' } }
+    return 'other'
+  }
+  [pscustomobject]@{
+    Hkl           = ('0x{0:X8}' -f $focusH.ToInt64())
+    LangId        = ('0x{0:X4}' -f $focusL)
+    Keyboard      = (& $tagOf $focusL $focusH.ToInt64())
+    FrameHkl      = ('0x{0:X8}' -f $frameH.ToInt64())
+    FrameLangId   = ('0x{0:X4}' -f $frameL)
+    FrameKeyboard = (& $tagOf $frameL $frameH.ToInt64())
+    Diverged      = ($focusL -ne $frameL)
+  }
 }
 
 function Get-ModsDown {
@@ -240,7 +309,8 @@ switch ($Command) {
   $SCHWA = [string][char]0x0259
   $ENG   = [string][char]0x014B
   $log = Join-Path $LogDir ("flexswitch-{0}-{1}.txt" -f ((Get-KeymanVer) -replace '[^0-9]','_'), $Scenario)
-  function Rep($s) { $line = "{0} {1}" -f (Get-Date -Format 'HH:mm:ss'), $s; Write-Host $line; Add-Content -Path $log -Value $line -Encoding utf8 }
+  # NOT Write-Host: 4301 ms/line vs 0.4 ms once conhost congests. See TRIGGER.md.
+  function Rep($s) { $line = "{0} {1}" -f (Get-Date -Format 'HH:mm:ss'), $s; [Console]::Out.WriteLine($line); Add-Content -Path $log -Value $line -Encoding utf8 }
 
   Rep "=========== FLEx keyboard-switch test ==========="
   Rep "keyman version : $(Get-KeymanVer)"
