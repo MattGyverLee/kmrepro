@@ -103,8 +103,7 @@ so they come first.
   claims to cover 64-bit.
 
 - [ ] **I8 — Mixed engine versions after an in-place upgrade.**
-  Rescued from `HANDOFF.md` §4 when it was archived, because it is an independent
-  candidate mechanism that no other doc carries.
+  An independent candidate mechanism that no other doc carries.
   `keyman32.dll` / `kmtip.dll` are mapped into every running application, so an
   in-place upgrade with `REBOOT=ReallySuppress` (`RunTools.pas:514`,
   `REINSTALLMODE=vomus REINSTALL=ALL`) replaces `keyman.exe` immediately while the
@@ -117,7 +116,7 @@ so they come first.
   run in **I4**.
 
 - [ ] **I9 — Does a failed hook reinstall leave Keyman unrecoverable?**
-  Also from `HANDOFF.md`. `InitLowLevelHook()` is not retried on failure, so a
+  `InitLowLevelHook()` is not retried on failure, so a
   failed reinstall appears to leave Keyman with no hook and no recovery path. The
   watchdog hypothesis was not supported as *the* cause of the wedge, but this is a
   separate robustness defect that would produce "Keyman active, nothing works at
@@ -303,8 +302,7 @@ so they come first.
 
 ## 1a. Ruled out
 
-Kept so they are not re-investigated. From `HANDOFF.md` §5 and this session's
-work.
+Kept so they are not re-investigated.
 
 - **Core normalization changes in 18.0.246** — LDML keyboards only.
   `kmx_processor::supports_normalization()` returns `false`
@@ -322,8 +320,7 @@ work.
   modifier KEYUP in the gap. Not supported: every reproduction in this repo was
   obtained with the reinstall never provoked at all — the freeze alone is
   sufficient (`kmproof.ps1` 3/3 candidate I, 10/10 sweep; `kmmods.ps1` six slots
-  2/2). The original ghost-key arm produced no wedge either, but those runs came
-  from the now-archived `kmwedge.ps1`, so its counts are not quoted.
+  2/2).
 - **Win, Apps, Fn, Scroll Lock and Insert as stuck-modifier candidates** — see
   `MODIFIERS.md` §2. Absent from `isModifierKey()` and from the `modifiers[6]`
   arrays; Fn never reaches Windows as a virtual key.
@@ -434,22 +431,22 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
   §3b collapses, because every keyboard has a Left Ctrl. Pairs with **I7**.
 
 - [x] **H4 — Propagate the known harness traps to the older scripts. CLOSED
-  2026-08-25 by archiving them instead of fixing them.**
-  `kmhunt.ps1`, `kmrepro.ps1`, `kmflex.ps1` and `kmshot.ps1` all resolved the HKL
-  from the top-level window (stale — must use `GetGUIThreadInfo(0).hwndFocus`) and
-  all used `Write-Host` (measured 4301 ms/line on a congested console, which can
-  silently let a 5 s freeze expire and turn a trial into a no-freeze control).
+  2026-08-25 by retiring them instead of fixing them.**
+  The earlier harness scripts all resolved the HKL from the top-level window
+  (stale — must use `GetGUIThreadInfo(0).hwndFocus`) and all used `Write-Host`
+  (measured 4301 ms/line on a congested console, which can silently let a 5 s
+  freeze expire and turn a trial into a no-freeze control).
 
-  None of the four had remaining unique capability: `kmproof.ps1` and `kmmods.ps1`
-  each implement the freeze stimulus correctly, *and* confirm the async
-  `PostMessage` landed before proceeding — which `kmrepro.ps1` never did.
-  `kmrepro.ps1 Status` was the only residual value, and it is one line:
+  None had remaining unique capability. `kmproof.ps1` and `kmmods.ps1` each
+  implement the freeze stimulus correctly *and* confirm the async `PostMessage`
+  landed before proceeding, which none of the older ones did; the only other
+  residual value was a build-version read, and that is one line:
   `(Get-Item "${env:ProgramFiles(x86)}\Keyman\Keyman Desktop\keyman.exe").VersionInfo.FileVersion`.
-  `kmflex.ps1`/`kmshot.ps1` drove FieldWorks, which is out of scope and is what
-  corrupted the lexicon (`HAZARDS.md` §2).
+  The rest drove FieldWorks, which is out of scope.
 
-  **Do not quote numbers from them.** Fixing five dead scripts was never worth it;
-  removing the ambiguity was.
+  **Every number in this repo comes from `kmproof.ps1`, `kmmods.ps1` or
+  `kmaltgr.ps1`.** Fixing dead scripts was never worth it; removing the ambiguity
+  was.
 
 - [x] **H6 — Right Shift extended flag. RAISED, THEN DISPROVED.**
   `kmproof.ps1:288` had `@{V=0xA1;E=$true; L='RShift'}`. Right Shift is scan

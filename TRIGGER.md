@@ -4,7 +4,9 @@ Two descriptions of the same thing: a plain-language one for bug reports, releas
 notes and talking to users, and a technical one for the engineers who will fix it.
 
 Investigated on **Keyman for Windows 18.0.249.0**, Windows 11 Pro 26200, against
-`sil_cameroon_qwerty` in Notepad and FieldWorks (Ngoreme project).
+`sil_cameroon_qwerty` in **Notepad** (first noticed in a FieldWorks Ngoreme
+project, but FieldWorks is not needed to reproduce and its testing is out of
+scope).
 
 ---
 
@@ -606,8 +608,7 @@ cd D:\Github\_Projects\_KM\kmrepro
 - That the watchdog is involved. **It is not**: every reproduction here was
   obtained with the LowLevelHookWatchDog's hook-reinstall never provoked at all —
   the freeze alone is sufficient. The hypothesis this investigation began with
-  (`83251358b0`, 18.0.245) is unsupported. Counts from the original ghost-key arm
-  came from the now-archived `kmwedge.ps1` and are not quoted.
+  (`83251358b0`, 18.0.245) is unsupported.
 - The field path that stalls the thread. CPU load alone did not do it (32 hogs on
   16 cores — and that crashed the host PowerShell with `OutOfMemoryException`).
   `-LoadThreads 4` plus the debug freeze is what reproduces here.

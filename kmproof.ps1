@@ -5,10 +5,10 @@
 
   WHY THIS EXISTS
   ---------------
-  kmhunt.ps1 answers "WHAT transitions Keyman from clean to wedged". It runs on
-  one keyboard at a time and cannot, on its own, support the claim in TRIGGER.md
-  that the bug is Keyman's. A single-arm result is consistent with at least four
-  other explanations:
+  A single-keyboard rig can answer "WHAT transitions Keyman from clean to
+  wedged", but it cannot, on its own, support the claim in TRIGGER.md that the
+  bug is Keyman's. A single-arm result is consistent with at least four other
+  explanations:
 
     (a) the Cameroon LAYOUT is at fault, whoever implements it
     (b) WINDOWS drops the modifier KEYUP and every IME would suffer
@@ -75,21 +75,20 @@
   ARM ORDER
   ---------
   Default order is US, MSKLC, Keyman - controls first, treatment last. The
-  Keyman wedge is PERSISTENT (see kmhunt.ps1's header: failure counts are
-  strictly bimodal), so measuring the controls before it removes any chance of a
-  leftover wedge colouring them. The script also records whether a wedge
+  Keyman wedge is PERSISTENT (failure counts are strictly bimodal), so measuring
+  the controls before it removes any chance of a leftover wedge colouring them. The script also records whether a wedge
   survived an arm switch.
 
   THE HKL ORACLE, CORRECTED
   -------------------------
-  kmrepro.ps1:490-495, kmflex.ps1:231 and kmhunt.ps1:24 all say the HKL is not
-  trustworthy. That is an artefact of WHICH THREAD was asked. Windows 11 Notepad
-  is a multi-threaded WinUI app: the top-level 'Notepad' frame window sits on a
+  Earlier rigs in this project all recorded that the HKL is not trustworthy.
+  That is an artefact of WHICH THREAD was asked. Windows 11 Notepad is a
+  multi-threaded WinUI app: the top-level 'Notepad' frame window sits on a
   thread pinned at 0x0409 forever, while the focused 'RichEditD2DPT' edit
   control lives on a different thread that does track the input locale.
   Resolving the thread from MainWindowHandle reads the frame thread and always
-  says 0x0409 - which is the "HKL said 0x0409 while ';e' correctly produced
-  U+0259" note at kmrepro.ps1:492.
+  says 0x0409 - which is what produced the old "HKL said 0x0409 while ';e'
+  correctly produced U+0259" note.
 
   Read from GetGUIThreadInfo(0).hwndFocus instead and the HKL is reliable, and
   positively discriminates all three arms. Verified by a same-thread A/B on
@@ -110,8 +109,9 @@
   SAFETY
   ------
   ClearField uses Ctrl+A then Delete. That is safe in Notepad and is NEVER safe
-  in FieldWorks (gotcha #4). This script refuses to run against anything but
-  notepad unless -IKnowClearFieldIsDestructive is passed.
+  against anything holding data you care about. Notepad is all the repro needs,
+  so this script refuses to run against any other process unless
+  -IKnowClearFieldIsDestructive is passed.
 
   Load emulation is capped at 6 runspaces: 32 exhausted memory and crashed the
   host PowerShell during an earlier session.
@@ -180,7 +180,7 @@ $ErrorActionPreference = 'Stop'
 # `powershell -File script.ps1 -Only A,B` passes "A,B" as ONE string, not an
 # array, so a comma list silently matches nothing and every candidate is
 # skipped. Same trap for -Arms. Split them back out. (Inherited from
-# kmhunt.ps1, where this bug cost a whole run.)
+# an earlier harness, where this bug cost a whole run.)
 function Split-CommaArg([string[]]$v) {
   if ($v.Count -eq 1 -and $v[0] -match ',') { $v = @($v[0] -split '\s*,\s*') }
   return @($v | Where-Object { $_ } | ForEach-Object { $_.Trim() })
@@ -193,7 +193,7 @@ foreach ($a in $Arms) {
 }
 if ($LoadThreads -gt 6) { $LoadThreads = 6 }
 if ($TargetProcess -ne 'notepad' -and -not $IKnowClearFieldIsDestructive) {
-  throw "ClearField does Ctrl+A then Delete. That is safe in Notepad and destructive in FieldWorks. Pass -IKnowClearFieldIsDestructive to override."
+  throw "ClearField does Ctrl+A then Delete. That is safe in Notepad and destructive anywhere that holds data you care about. Pass -IKnowClearFieldIsDestructive to override."
 }
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
 
@@ -268,8 +268,8 @@ $jsonPath= Join-Path $LogDir "proof-$stamp.json"
 # the probe runs, and gives Keyman time to recover, so trials silently
 # degenerate into no-freeze controls.
 #
-# kmhunt.ps1, kmrepro.ps1 and kmflex.ps1 all use Write-Host in their own Say
-# functions and are all exposed to this. Earlier runs in this session logged
+# The earlier rigs in this project all used Write-Host in their own Say
+# functions and were all exposed to this. Earlier runs in this session logged
 # sub-millisecond, so the stall appears only once the console host is congested
 # - which means past results may have been distorted without anything looking
 # wrong in the logs. Worth re-checking any timing-sensitive conclusion drawn
@@ -631,7 +631,8 @@ function Get-Fingerprint([string]$arm) {
 }
 
 # ---- candidate triggers --------------------------------------------------
-# Identical to kmhunt.ps1's set so results are directly comparable. Each is one
+# Unchanged from the original single-keyboard set, so results stay directly
+# comparable across the whole project. Each is one
 # discrete action applied from a verified-clean state.
 #   A is the internal control: a bare modifier hold with NO freeze. It should
 #     stay clean even on the Keyman arm. If A wedges, the freeze is not the

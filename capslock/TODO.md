@@ -82,7 +82,7 @@ lock/modifier state, re-derive it from the OS. `MODIFIERS.md` §4.
 - [ ] **T4 — Cost of `GetAsyncKeyState` on the key path.** F2 adds five calls per
   key event on a path that is already the thing that stalls. Measure; it should be
   negligible, but "should be" is not a measurement on this code path.
-- [ ] **T5 — 64-bit host apps.** Blocked on **I5**. Verify in a 64-bit host
-  (FieldWorks) as well as a 32-bit one, and in a UWP app — `ProcessModifierChange`
+- [ ] **T5 — 64-bit host apps.** Blocked on **I5**. Verify in a 64-bit host as
+  well as a 32-bit one, and in a UWP app — any host will do — `ProcessModifierChange`
   exists in duplicate precisely because the GetMessage hook and TSF paths do not
   both fire everywhere (`kmhook_getmessage.cpp:444-449`).

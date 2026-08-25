@@ -9,7 +9,9 @@ attribute one class of Keyman for Windows bug:
 > clears it.
 
 Investigated on **Keyman for Windows 18.0.249.0**, Windows 11 Pro 26200, against
-`sil_cameroon_qwerty` in Notepad and FieldWorks (Ngoreme project).
+`sil_cameroon_qwerty` in **Notepad**. It was first noticed while typing Ngoreme
+into FieldWorks, but the defect is system-wide and needs nothing but Notepad to
+reproduce; FieldWorks testing is out of scope.
 
 Companion Keyman checkout: `../keyman`, branch
 `fix/windows/16422-caps-lock-state-on-keyboard-switch`.
@@ -99,7 +101,7 @@ Two consequences that took the longest to establish:
 | Keyman's serializer replays keystrokes on non-Keyman layouts | **NO — measured 2026-08-25.** The Keyman arm doubled every keystroke with a `KM-SERIALIZED` replay; the MSKLC arm produced zero across 102 events. Holds alongside the charge-test row above — charging the wedge is not the same act as replaying a key, so do not read this as "Keyman is inert on other layouts". `MODIFIERS.md` §3d-measured |
 | **What stalls the thread in the field** | **NOT established.** The stall is induced deliberately; CPU load alone did not reproduce it (32 hogs / 16 cores, 0/10). This is the main open gap — `TODO.md` I3. Ross's focus-change observation is the best lead, see `issue-8064/README.md` §2. Note the stimulus is **not** debug-only: the handler is an ungated `Sleep(5000)` and already ships as `fakefreeze`; it simply has no `build.sh` |
 | **Whether Cache A exists in the 64-bit engine** | **NOT established — inference only.** `serialkeyeventserver.cpp` is wrapped `#ifndef _WIN64` (`:7`/`:595`). The working assumption is that keyman.exe is 32-bit, hosts the single server, and its `SendInput` reaches 64-bit hosts like any other injected input — which is what makes the "machine-wide" and "blast radius" rows above cover 64-bit apps. **That step is unverified.** `TODO.md` I5 |
-| The hypothesis this started from — that 18.0.245's `LowLevelHookWatchDog` tears the hook out and reinstalls it | **NOT SUPPORTED, and retracted.** Every reproduction in this repo was obtained with the watchdog's hook-reinstall never provoked at all: `kmproof.ps1` 3/3 on candidate I and 10/10 on the sweep, `kmmods.ps1` six slots 2/2. The freeze alone is sufficient; the ghost key is not required. The original ghost-key arm produced no wedge either, but those runs came from `kmwedge.ps1`, since archived, so its counts are not quoted. This agrees with mcdurdin's own note on #8064 that the watchdog PRs probably did not resolve it |
+| The hypothesis this started from — that 18.0.245's `LowLevelHookWatchDog` tears the hook out and reinstalls it | **NOT SUPPORTED, and retracted.** Every reproduction in this repo was obtained with the watchdog's hook-reinstall never provoked at all: `kmproof.ps1` 3/3 on candidate I and 10/10 on the sweep, `kmmods.ps1` six slots 2/2. The freeze alone is sufficient; provoking the hook reinstall is not required at all. This agrees with mcdurdin's own note on #8064 that the watchdog PRs probably did not resolve it |
 
 ---
 
@@ -113,7 +115,7 @@ Start here and stop when you have what you need.
 | **`TRIGGER.md`** | The full write-up: plain-language description, the defect chain with code refs, the reproduction, and **§3, the three-arm controlled proof**. Also carries the hard-won harness traps — read those before writing any test here. |
 | **`MODIFIERS.md`** | Which modifier keys are actually in scope. Rules Win, Fn, Scroll Lock and Insert out; explains phantom Right Ctrl on hardware that has no such key; separates the two independent caches. |
 | **`FIX-PROPOSAL.md`** | Proposed fixes in order of value, with the caveats not to overstate in a PR. |
-| **`HAZARDS.md`** | **Read before writing or changing harness code.** FLEx and FieldWorks operational hazards plus the safety rules for the live language data. Two of these corrupted the user's lexicon. |
+| **`HAZARDS.md`** | **Read before writing or changing harness code.** Five ways to break the target rather than mis-measure it — extended navigation keys, PowerShell name collisions, the HKL focus thread, `dwExtraInfo = 0`, the version read. |
 | **`TODO.md`** | Working list: investigations, deferred Cache A work, harness gaps, test gates, and suggested order. The Cache B fixes moved to [`capslock/TODO.md`](capslock/TODO.md). |
 | **`TEST-PLAN.md`** | Plan for porting these findings into Keyman's own test structures: the repro recipe, the gtest and manual-test deliverables, and the cross-platform prevention work. Companion: `MEETING-PREP.md`. |
 | **`capslock/`** | The separate Caps Lock / Cache B defect (#16422 / #16423). |

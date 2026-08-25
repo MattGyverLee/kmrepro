@@ -62,7 +62,7 @@ Four previous attempts at this symptom. Expect *"we've fixed this before."*
 | [#7337][i7337] (2022, rc-swag, [`90eb7c77ec`][c7337]) | *ensure all modifier events go to serialized queue* | **This commit created the Cache A feed** at [`k32_lowlevelkeyboardhook.cpp:200`][llh200]. It fixed a desync; it also made the cache authoritative |
 | [#15179][p15179]/[#15219][p15219] (2025, mcdurdin) | LL-hook watchdog — reinstall the hook if Windows removes it | **Marc already knows it did not fix #8064.** 2025-11-26: *"@rc-swag notes that stuck key logs still have lowlevelkeyboardproc messages, so this probably does not resolve that issue."* A bot auto-closed #8064; Marc reopened it: *"Nope, see above. My bad"* |
 
-Note the last row: kmrepro's null result on the ghost-key/watchdog arm ([RESULTS-treatment][rt]) **confirms Marc's own note**. Say so — it turns a retraction into corroboration.
+Note the last row: this repo's own finding that the watchdog is not the mechanism **confirms Marc's own note**. Say so — it turns a retraction into corroboration.
 
 ---
 
@@ -70,9 +70,9 @@ Note the last row: kmrepro's null result on the ghost-key/watchdog arm ([RESULTS
 
 Being surprised by your own material is worse than being surprised by theirs.
 
-- **The watchdog hypothesis was wrong.** Every reproduction in this repo was obtained with the watchdog's hook-reinstall never provoked at all — the freeze alone is sufficient (`kmproof.ps1` 3/3 candidate I, 10/10 sweep; `kmmods.ps1` six slots 2/2). The original ghost-key arm produced no wedge either, but those runs came from the now-archived `kmwedge.ps1`, so **do not quote its counts** — earlier drafts of this repo cited both "27 iterations" and "15 Ghost iterations" for the same retraction. Everything built on it — the protocol, the handoff doc, `kmrepro.ps1`, both RESULTS docs and the Ghost-arm logs — is in [`archive/watchdog-hypothesis/`](archive/watchdog-hypothesis/README.md), whose README records the verdict and where the three surviving findings went. Do not present it, but **do** volunteer it: it corroborates Marc's own note (§3, last row).
+- **The watchdog hypothesis this investigation started from was wrong.** Every reproduction in this repo was obtained with the watchdog's hook-reinstall never provoked at all — the freeze alone is sufficient (`kmproof.ps1` 3/3 candidate I, 10/10 sweep; `kmmods.ps1` six slots 2/2). Do not present it, but **do** volunteer it: it corroborates Marc's own note (§3, last row).
 - **H6 (Right Shift extended flag) was raised, then disproved.** Injecting `VK_RSHIFT` with and without the extended flag yields byte-identical events at the hook. See [README.md]. If you mentioned it earlier, correct it before they find it.
-- **Four of the seven harness scripts carried two known-bad patterns** — the HKL resolved from the top-level window rather than the focus thread, and `Write-Host` (measured 4301 ms/line on a congested console; a *correctness* hazard, since it can let a 5 s freeze expire before the probe runs). [TODO][todo] **H4 is now closed** by archiving them ([`archive/superseded-scripts/`](archive/superseded-scripts/README.md)) rather than fixing them — none had unique capability left. **Do not quote their numbers**, including `kmhunt.ps1`'s, even though it was the instrument that originally found the wedge. Live scripts are `kmproof.ps1`, `kmmods.ps1` and `kmaltgr.ps1`, all clean on both counts.
+- **Earlier harness scripts carried two known-bad patterns** — the HKL resolved from the top-level window rather than the focus thread, and `Write-Host` (measured 4301 ms/line on a congested console; a *correctness* hazard, since it can let a 5 s freeze expire before the probe runs). They were retired rather than fixed ([TODO][todo] H4), so **every number in this repo comes from `kmproof.ps1`, `kmmods.ps1` or `kmaltgr.ps1`**, which are clean on both counts. If an older figure surfaces from an earlier draft, it is not citable.
 - **The summary table inside `logs/mods-prefix-latch-evidence.txt` is the pre-`self`-column version** and shows the immune keys as "2/2 latched" from §2c residue. Quote [MODIFIERS.md] §2b instead.
 
 ---
@@ -102,7 +102,7 @@ Being surprised by your own material is worse than being surprised by theirs.
 
 ## 7. Likely pushback, and the answer
 
-**"We can't reproduce it."** → Load was never the mechanism: 32 CPU hogs gave 0/10; the freeze alone with zero load gave 10/10 ([RESULTS-treatment][rt]). Marc's own [`LowLevelHookWatchDog.cpp`][wd] says the hook is only uninstalled *"if a key is pressed while Keyman is unresponsive"* — and for this bug it must be a modifier **KEYUP**. That never coincides by accident on an idle VM. `fakefreeze.exe` makes it deterministic.
+**"We can't reproduce it."** → Load was never the mechanism: 32 CPU hogs gave 0/10; the freeze alone with zero load gave 10/10 ([TEST-PLAN][tp] §1). Marc's own [`LowLevelHookWatchDog.cpp`][wd] says the hook is only uninstalled *"if a key is pressed while Keyman is unresponsive"* — and for this bug it must be a modifier **KEYUP**. That never coincides by accident on an idle VM. `fakefreeze.exe` makes it deterministic.
 
 **"Windows E2E tests need elevation and are expensive."** → Agreed, and not what is proposed. The [`keyman32` gtest suite][vcx] links the engine as a **static library** into a console exe — no elevation, no TSF, no installed Keyman. `keybd_shift_release`/`keybd_shift_reset` never call `SendInput`; they fill a caller-supplied `INPUT[]`, so they are pure functions over a 256-byte array.
 
@@ -132,8 +132,6 @@ Being surprised by your own material is worse than being surprised by theirs.
 [TODO.md]: TODO.md
 [todo]: TODO.md
 [README.md]: README.md
-[PROTOCOL.md]: archive/watchdog-hypothesis/PROTOCOL.md
-[rt]: archive/watchdog-hypothesis/RESULTS-treatment-18.0.249.md
 [tp]: TEST-PLAN.md
 
 [i8064]: https://github.com/keymanapp/keyman/issues/8064

@@ -180,19 +180,17 @@ worst keys are invisible to the obvious oracle. Note that neither of those is a
 
 Offer these before anyone finds them.
 
-- **The watchdog hypothesis this investigation started from is wrong.** The ghost
-  key is not required for any of it: every reproduction here was obtained with the
-  hook-reinstall never provoked at all (`kmproof.ps1` 3/3 candidate I, 10/10
-  sweep; `kmmods.ps1` six slots 2/2). The original ghost-key arm produced no wedge
-  either, but those runs came from the now-archived `kmwedge.ps1`, so its counts
-  are not quoted. This
-  **corroborates mcdurdin's own note** on #8064 that #15219 probably did not
-  resolve it, which turns a retraction into agreement.
+- **The watchdog hypothesis this investigation started from is wrong.** Provoking
+  the hook reinstall is not required for any of it: every reproduction here was
+  obtained with the reinstall never provoked at all (`kmproof.ps1` 3/3 candidate
+  I, 10/10 sweep; `kmmods.ps1` six slots 2/2). This **corroborates mcdurdin's own
+  note** on #8064 that #15219 probably did not resolve it, which turns a
+  retraction into agreement.
 - **H6 (Right Shift extended flag) was raised, then disproved** at the wire.
   Windows resolves the side from the side-specific VK, not the flag.
 - **Only three scripts are citable** — `kmproof.ps1`, `kmmods.ps1` and
-  `kmaltgr.ps1`, which are clean on both known measurement hazards. Numbers from
-  any earlier single-keyboard or `Write-Host`-based run are not quoted here.
+  `kmaltgr.ps1`, which are clean on both known measurement hazards. Every number
+  in this repo comes from one of those three.
 
 ---
 

@@ -1,99 +1,87 @@
-# HAZARDS — read before touching the harness code
+# HAZARDS — read before writing or changing harness code
 
-Extracted from `HANDOFF.md` §9-10 when that document was archived. These are
-operational hazards, not findings. Every one of them cost real time, and two of
-them corrupted live language data.
+Five ways to break the *target* rather than mis-measure it. The oracle and
+comparison traps are a different list and live in `TRIGGER.md` ("Harness traps
+found the hard way") — that one is about measuring correctly. This one is about
+not breaking things while you measure.
 
-The oracle and comparison traps live in `TRIGGER.md` ("Harness traps found the
-hard way") — that list is about *measuring* correctly. This one is about not
-breaking things while you measure.
+Every entry below cost real time. All five are target-independent: they apply to
+the Notepad-only harness the repro actually uses.
 
----
-
-## 1. Harness gotchas
-
-These cost hours and twice corrupted live language data.
-
-1. **Navigation keys MUST carry `KEYEVENTF_EXTENDEDKEY`.** Unextended, Left's scan
-   code `0x4B` *is* numpad-4, Right `0x4D` is numpad-6, Home `0x47` is numpad-7 —
-   they insert characters instead of moving the caret. **This corrupted the user's
-   lexicon twice.** **FieldWorks testing is now out of scope** (`TEST-PLAN.md` §7)
-   and the driver that caused this is gone. The entry is kept so nobody rebuilds
-   one without routing every navigation key through a single guarded helper that
-   sets `KEYEVENTF_EXTENDEDKEY`.
-2. **PowerShell variable names are case-insensitive.** `$EXT` (constant) collided
-   with `$Ext` (switch parameter). Same class of bug: a helper named `R` resolved
-   to the built-in alias for `Invoke-History` — aliases outrank functions.
-3. **`GetKeyboardLayout()` — partly rehabilitated, but still not the oracle in
-   FLEx.** The Notepad half of this was a wrong-thread artifact: multi-threaded UI
-   apps keep the top-level frame window on a thread pinned at `0x0409` for the
-   life of the process, while the focused edit control sits on a different thread
-   that does track the input locale. `GetWindowThreadProcessId(MainWindowHandle)`
-   reads the frame thread and is stale forever. Resolve from
-   `GetGUIThreadInfo(0).hwndFocus` and it discriminates cleanly — verified by
-   same-thread A/B on 2026-08-23 (Keyman `0x04092000`, MS Cameroon `0xF0C00436`,
-   US `0x04090409`). `kmproof.ps1` and `kmmods.ps1` rely on this; any new
-   HKL helper should return **both** readings — frame thread and focus thread —
-   plus a `Diverged` flag, so a stale frame-thread value is visible rather than
-   silently believed.
-
-   **The FLEx observation above is NOT explained by that, and is not retracted.**
-   FLEx changes keyboards *programmatically* from its writing-system combo, which
-   is a different path from a user TSF switch and may not update any thread's HKL
-   promptly. That case has not been re-tested with the focus-thread fix. So in
-   FLEx: still **type and read back**; treat the HKL as a hint and check
-   `Diverged`. In Notepad the HKL is now trustworthy.
-4. **In FLEx, never send Home/End/Ctrl+A.** RootSite treats them as record-wide
-   navigation; the caret leaves the field.
-5. **In FLEx, never collapse a selection with Right at end-of-field.** It moves to
-   the *next field*, so every read silently advances the caret and a later Tab
-   count overshoots. Use `Read-AndClear`, which leaves the Shift+Left selection
-   active and deletes it with one Backspace — atomic, caret unmoved.
-6. **Tab is unusable for the FLEx field switch.** Tabbing past an entry's last
-   field advances to the **next record**. Use absolute clicks.
-7. **FieldWorks exposes NO UI Automation text** (zero Document/Edit/Text
-   elements). Clipboard or screenshot only. Notepad, by contrast, exposes a clean
-   `ValuePattern` on `RichEditD2DPT` — prefer Notepad for anything that doesn't
-   need FLEx specifically.
-8. **`keybd_event` with `dwExtraInfo = 0` is deliberate.** Keyman only filters on
-   `dwExtraInfo != 0` (`k32_lowlevelkeyboardhook.cpp:229`), so 0 makes Keyman treat
-   synthesized keys as real user input. Do not "fix" this to SendInput with a
-   marker.
-9. `keyman.exe`'s `Path` is unreadable from an unelevated shell — read the version
-   from the registry.
-10. FLEx field Y-coordinates **shift between entries** and as fields gain content.
-    Re-check by hand if anything looks wrong. Current test entry:
-    Ngq Citation Form `(1000, 325)`, Eng Note `(1000, 490)`.
+> **Notepad is the only target.** FieldWorks testing is out of scope
+> (`TEST-PLAN.md` §7) — the reproduction needs nothing else, and pointing a
+> harness at a live language database is how H1 below corrupted real lexical data
+> twice.
 
 ---
 
-## 2. Safety rules — live language data
+## H1 — navigation keys MUST carry `KEYEVENTF_EXTENDEDKEY`
 
-- **The FLEx database contains real Ngoreme language data.** The user has said the
-  DB is restorable and any entry is expendable, and created a dedicated test entry
-  (headword `Ngq`, entry 698/2234) — **use only that entry**.
-- Every FLEx write must be self-cleaning (`Read-AndClear`). Verify the entry is
-  unchanged after a run — verify by hand, and prefer not driving FieldWorks at all.
-- **Do not spam Ctrl+Z to fix mistakes.** The undo stack mixes your changes with
-  the user's work; an over-undo silently reverts their edits. If you corrupt
-  something, say so and let the user restore.
-- Claude Code's auto-mode classifier may block synthesized keystrokes into
-  FieldWorks. That is a reasonable block — surface it to the user rather than
-  working around it.
+Unextended, Left's scan code `0x4B` *is* numpad-4, Right `0x4D` is numpad-6, and
+Home `0x47` is numpad-7. Send them without the extended flag and they **insert
+characters instead of moving the caret** — silently, in whatever has focus.
 
----
+This is not an app-specific quirk; it is how the scan-code space works, and it is
+equally true in Notepad. It corrupted a live lexicon twice before the driver
+responsible was retired. Route every navigation key through a single guarded
+helper that sets `KEYEVENTF_EXTENDEDKEY` rather than setting the flag at each
+call site.
 
+The same rule governs the modifier catalog: `Ext` and `Scan` in `kmmods.ps1` are
+load-bearing, not decorative. Insert unextended is numpad-0.
 
-## 3. Two hazards worth restating
+## H2 — PowerShell names are case-insensitive, and aliases outrank functions
 
-Both are easy to undo by accident while "cleaning up" code.
+`$EXT` (a constant) collided with `$Ext` (a switch parameter) and the two were
+the same variable. Same class of bug from the other direction: a helper named `R`
+resolved to the built-in alias for `Invoke-History`, because aliases are looked
+up before functions.
 
-- **`keybd_event` with `dwExtraInfo = 0` is deliberate** (gotcha 8). Keyman only
-  filters on `dwExtraInfo != 0`, so 0 is what makes it treat synthesized keys as
-  real user input. Converting these calls to `SendInput` with a marker would make
-  the whole harness invisible to Keyman and every test would silently pass.
-- **The FLEx HKL caveat is not retracted** (gotcha 3). The Notepad half was a
-  wrong-thread artifact and is fixed. FLEx changes keyboards *programmatically*
-  from its writing-system combo, which is a different code path and has not been
-  re-tested with the focus-thread fix. `TRIGGER.md` marks the HKL question
-  "SOLVED" — that applies to Notepad. In FLEx, still type and read back.
+Give constants and parameters names that differ by more than case, and do not
+name a function with one or two letters.
+
+## H3 — resolve the HKL from the focus thread, not the top-level window
+
+Multi-threaded UI apps keep the top-level frame window on a thread pinned at
+`0x0409` for the life of the process, while the focused edit control sits on a
+different thread that does track the input locale. `GetWindowThreadProcessId(MainWindowHandle)`
+reads the frame thread and is **stale forever** — it reports `0x0409` while
+Keyman is demonstrably live.
+
+Resolve from `GetGUIThreadInfo(0).hwndFocus` and the HKL discriminates cleanly.
+Verified by same-thread A/B on 2026-08-23: Keyman `0x04092000`, MS Cameroon
+`0xF0C00436`, US `0x04090409`. Compare the **full** HKL, not just the langid —
+Dvorak lands as `0xF0020409` and would silently break an ASCII oracle.
+
+`kmproof.ps1` and `kmmods.ps1` rely on this. Any new HKL helper should return
+**both** readings — frame thread and focus thread — plus a `Diverged` flag, so a
+stale frame-thread value is visible rather than silently believed.
+
+This was originally written as "`GetKeyboardLayout()` is an unreliable oracle."
+That was a wrong-thread artifact and is retracted **for Notepad**, which is the
+only target in scope. It is not a general retraction: an app that switches
+keyboards programmatically rather than through a user TSF switch takes a
+different code path, and that case was never re-tested with the focus-thread fix.
+If you ever measure one, type and read back rather than trusting the HKL.
+
+## H4 — `keybd_event` with `dwExtraInfo = 0` is deliberate
+
+Keyman only filters on `dwExtraInfo != 0`
+(`k32_lowlevelkeyboardhook.cpp:229`), so **0 is what makes Keyman treat
+synthesized keys as real user input.**
+
+Do not "fix" this to `SendInput` with a marker. Doing so makes the entire harness
+invisible to Keyman, and every test then passes silently — the worst possible
+failure mode, since the rig would report a clean machine no matter what Keyman
+did. This is the easiest hazard in the list to undo by accident while tidying
+code, which is why it is called out twice.
+
+## H5 — read the `keyman.exe` version from the registry
+
+`keyman.exe`'s `Path` is unreadable from an unelevated shell, so
+`Get-Process` cannot give you a version. Read it from the registry, or from the
+file directly:
+
+```powershell
+(Get-Item "${env:ProgramFiles(x86)}\Keyman\Keyman Desktop\keyman.exe").VersionInfo.FileVersion
+```

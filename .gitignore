@@ -1,7 +1,8 @@
-# Screenshots of the live FieldWorks project. These show real Ngoreme lexical
-# entries, which are the language community's data rather than the project's own,
-# so they are kept out of the public repository by default.
-# To publish them deliberately:  git add -f archive/reports-control/*.png
+# Screenshots of the live FieldWorks project (archive/fieldworks-testing/screenshots/).
+# These show real Ngoreme lexical entries, which are the language community's data
+# rather than the project's own, so they are kept out of the public repository.
+# FieldWorks testing is out of scope; the images are kept only as archive context.
+# To publish one deliberately:  git add -f <path-to>.png
 *.png
 *.jpg
 *.jpeg

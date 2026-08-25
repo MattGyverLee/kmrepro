@@ -388,7 +388,7 @@ Keyman keyboard active:
 Cross-check against `kmrepro/logs/` — the wire capture there shows exactly this
 sequence, so the two harnesses should agree event for event.
 
-**Do not** attempt any of this against FieldWorks; kmrepro's `HAZARDS.md` records real
+**Do not** attempt any of this against FieldWorks; `archive/fieldworks-testing/HAZARDS-flex.md` records real
 lexical-data corruption from navigation keys sent without `KEYEVENTF_EXTENDEDKEY`.
 
 ---

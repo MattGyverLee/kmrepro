@@ -52,7 +52,7 @@ Cite the live document, not this one:
 | `PROTOCOL.md` | the test protocol written for this hypothesis |
 | `RESULTS-control-18.0.238.md` | control baseline, pre-watchdog build. All clean |
 | `RESULTS-treatment-18.0.249.md` | the treatment run. Watchdog confirmed present and live; the hypothesised failure did not reproduce in 45 iterations. **Addendum 2 is the load/freeze table above** |
-| `HANDOFF.md` | handoff doc framed on this hypothesis. Its live content was extracted first — hazards and safety rules to `HAZARDS.md`, secondary suspects and the ruled-out list to `TODO.md` §1 / §1a |
+| `HANDOFF.md` | handoff doc framed on this hypothesis. Its live content was extracted first — hazards and safety rules to `HAZARDS.md` (since split: the FieldWorks half moved on again, to `archive/fieldworks-testing/`), secondary suspects and the ruled-out list to `TODO.md` §1 / §1a |
 | `kmrepro.ps1` | the rig. `Status`, `Arm`, `Freeze`, `GhostKey`, `ModWatch`, `Soak`, `AutoTest`. Carries both known-bad harness patterns (top-level-window HKL, `Write-Host`) |
 | `logs/*-Ghost.txt` | the ghost-key arm's raw logs — **the null result's evidence** |
 | `logs/*-Clean.txt`, `*-Freeze.txt`, `baseline-*.txt` | the rig's other arms, moved here with it. The `-Freeze` runs are the 10/10 rows in the table above; the `-Clean` runs are the switch-only control |

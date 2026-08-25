@@ -118,8 +118,8 @@
                 pre-trial toggle state is recorded, restored, and verified
                 restored, before anything is typed.
     Insert      extended. Unextended, scan 0x52 IS numpad-0 and types a digit -
-                HAZARDS.md gotcha 1, the bug that corrupted live lexicon data
-                twice. Every key in the catalog carries an explicit Ext flag.
+                HAZARDS.md H1. Every key in the catalog carries an explicit
+                Ext flag.
 
   THE RIGHT SHIFT EXTENDED FLAG - A CORRECTION
   --------------------------------------------
@@ -231,7 +231,7 @@ $ErrorActionPreference = 'Stop'
 
 # `powershell -File script.ps1 -Mods A,B` passes "A,B" as ONE string, not an
 # array, so a comma list silently matches nothing and every entry is skipped.
-# Inherited from kmhunt.ps1, where this bug cost a whole run.
+# Inherited from an earlier harness, where this bug cost a whole run.
 function Split-CommaArg([string[]]$v) {
   if ($null -eq $v) { return @() }
   if ($v.Count -eq 1 -and $v[0] -match ',') { $v = @($v[0] -split '\s*,\s*') }
@@ -243,7 +243,7 @@ $Latch = $Latch.Trim().ToUpper()
 
 if ($LoadThreads -gt 6) { $LoadThreads = 6 }   # 32 runspaces crashed the host once
 if ($TargetProcess -ne 'notepad' -and -not $IKnowClearFieldIsDestructive) {
-  throw "This types into the target and clears it between probes. Safe in Notepad, destructive in FieldWorks (HAZARDS.md gotcha 4). Pass -IKnowClearFieldIsDestructive to override."
+  throw "This types into the target and clears it between probes. Safe in Notepad; destructive in anything holding data you care about. Notepad is all the repro needs. Pass -IKnowClearFieldIsDestructive to override."
 }
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
 
@@ -309,7 +309,7 @@ function Say([string]$t) {
 # dwExtraInfo != 0 (k32_lowlevelkeyboardhook.cpp:227), so 0 is what makes it
 # treat these as real user input. Converting to SendInput with a marker would
 # make the whole harness invisible to Keyman and every test would silently pass.
-# HAZARDS.md gotcha 8 and section 3.
+# HAZARDS.md H4.
 function Kd([int]$v, [switch]$E) { $f = 0;   if ($E) { $f = $f -bor $EXT }; [Km]::keybd_event([byte]$v, [byte][Km]::MapVirtualKey($v,0), $f, [UIntPtr]::Zero) }
 function Ku([int]$v, [switch]$E) { $f = $UP; if ($E) { $f = $f -bor $EXT }; [Km]::keybd_event([byte]$v, [byte][Km]::MapVirtualKey($v,0), $f, [UIntPtr]::Zero) }
 function Tp([int]$v, [int]$g = 70, [switch]$E) { Kd $v -E:$E; Start-Sleep -Milliseconds 40; Ku $v -E:$E; Start-Sleep -Milliseconds $g }
@@ -317,8 +317,7 @@ function Tp([int]$v, [int]$g = 70, [switch]$E) { Kd $v -E:$E; Start-Sleep -Milli
 # ---- the modifier catalog --------------------------------------------------
 # Ext is the KEYEVENTF_EXTENDEDKEY flag and it is NOT cosmetic. Get it wrong and
 # the OS sees a different key entirely: unextended Insert (0x52) is numpad-0 and
-# types a digit, which is the bug that corrupted live lexicon data twice
-# (HAZARDS.md gotcha 1). Only RCtrl (E0 1D), RAlt (E0 38), Insert (E0 52),
+# types a digit (HAZARDS.md H1). Only RCtrl (E0 1D), RAlt (E0 38), Insert (E0 52),
 # L/RWin (E0 5B/5C) and Apps (E0 5D) are extended. Right SHIFT is scan 0x36 and
 # is NOT - see the header note about kmproof.ps1's table.
 #
@@ -530,7 +529,7 @@ function Get-TypeSafety($st) {
 # keeps its frame window on a thread pinned at 0x0409 forever while the focused
 # RichEditD2DPT sits on a thread that does track the input locale, so resolving
 # from MainWindowHandle reads the wrong thread and always says US.
-# HAZARDS.md gotcha 3; kmproof.ps1 "THE HKL ORACLE, CORRECTED".
+# HAZARDS.md H3; kmproof.ps1 "THE HKL ORACLE, CORRECTED".
 function Resolve-Arm([int64]$lang, [int64]$high) {
   # en-US carries two input methods on this machine (US 00000409 and Dvorak,
   # which comes back as high word 0xF002, a substitution handle). 'jkq' is not
@@ -910,7 +909,7 @@ try {
   Say ''
 
   # ---- catalog -------------------------------------------------------------
-  Say 'KEY CATALOG (Ext and Scan are load-bearing - HAZARDS.md gotcha 1)'
+  Say 'KEY CATALOG (Ext and Scan are load-bearing - HAZARDS.md H1)'
   Say ('  {0,-9} {1,-5} {2,-4} {3,-14} {4,-9} {5,-7} {6,-7} {7}' -f 'id','vk','ext','scan','class','cacheA','hazard','label')
   foreach ($m in $MODCAT) {
     $actual = [Km]::MapVirtualKey($m.Vk,0)
