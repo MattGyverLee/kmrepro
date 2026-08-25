@@ -610,6 +610,47 @@ act as replaying a keystroke — but anyone quoting one should know about the
 other, because "Keyman is inert on other layouts" is the wrong conclusion to draw
 from the null above.
 
+#### Footnote: the LCTRL branch, and a source comment that is wrong
+
+Three things worth keeping from this same measurement, because they bear on where
+a fix goes rather than on the RCTRL seed question.
+
+**1. The AltGr Ctrl arrives already sided, so it never touches the ternary.**
+`kmaltgr.ps1:239-241` renders `0x11` as `CONTROL` and `0xA2` as `LCTRL`; the
+capture printed **`LCTRL`**, so `vkCode` was `0xA2`. It therefore takes the
+*pass-through* case at `serialkeyeventserver.cpp:567-575`, **not** the
+`fIsExtendedKey` ternary at `:558` that `Phantom_RCTRL.md` §1 identifies as the
+RCTRL seed. So the comment at `:574` — *"These are technically not needed but
+perhaps some app will send them through SendInput and we'll have to deal with
+them?"* — **is wrong.** That case carries the highest-frequency Ctrl traffic on an
+AltGr layout: 44/44 events in this run. A fix aimed at the ternary would miss it
+entirely.
+
+**2. Keyman's source already documents a missing LCtrl KEYUP.** `:449-482`:
+*"When Windows has a European layout that uses AltGr installed, it can emit an
+additional LCtrl down via software when RAlt is pressed. **However, the
+corresponding LCtrl up is never received** […] So we simulate the release of the
+Left Control key ourselves […] and hope for the best."* The LCTRL seed condition
+is therefore documented engine behaviour on every AltGr layout, not something
+anyone has to hunt for.
+
+**3. That rescue (`:447`) has three conjuncts, and each is a failure mode.** If
+any fails, no simulated release is emitted and the LCTRL slot stays at `0x80`:
+
+- `wParam == VK_RMENU` — the *sided* 0xA5 only. An injector sending unsided
+  `VK_MENU` + extended updates the cache via the ternary at `:562` and **skips the
+  rescue.** The cache normalises nine VKs; the rescue matches one.
+- `GetKeyState(VK_LCONTROL) < 0` — **the rescue depends on the processed-input-queue
+  state whose staleness is this entire bug** (`FIX-PROPOSAL.md:89-91`). Under the
+  UI-thread stall it reads "LCtrl is not down" and declines to release it.
+- The RAlt KEYUP must arrive at all.
+
+**Where that leaves LCTRL:** the frequent-but-clearable mirror of §3. Any physical
+Left Ctrl tap clears it — sided `0xA2` → `:567` → `:581` writes `0`, proven from
+source. **The join is not measured end to end:** the synthesis is measured (22/22
+above), the latch is measured (7/7, §2b), the composition of the two is inference.
+Do not quote it as established.
+
 #### Still owed
 
 **Affected field hardware.** This is now the *only* remaining part of item 3, and
@@ -625,72 +666,21 @@ no synthesis. Noted for completeness, not as a gap.
 
 ## 4. The un-read-state bug: Caps, Num, and the five modifiers
 
-Separate defect, separate cache (B), no phantom keypress — the symptom is wrong
-output or no output while every physical key is genuinely up.
+**Moved.** This is a *separate defect* — Cache B, no phantom keypress, symptom is
+wrong output or no output while every physical key is genuinely up. It is
+Keyman issues [#16422] / [#16423], not [#8064].
 
-Cache B's toggle flags are written by `ProcessToggleChange` (`aiTIP.cpp:102-118`),
-which runs **only when Keyman observes a Caps/NumLock keydown**. Miss that event
-— blocked hook, another keyboard active, another app calling `keybd_event`, lock
-screen — and `CAPITALFLAG` is stale. That is the Caps Lock bug, and **#16423**.
+Findings **4a** (the keyboard-switch resync is two flags short of its sibling
+set), **4b** (both helpers use `GetKeyState` where `GetAsyncKeyState` is
+required) and **4c** (Shift has no L/R split in Cache B, Ctrl and Alt do) now
+live in **[`capslock/FINDINGS.md`](capslock/FINDINGS.md)**.
 
-There are two resync helpers, and the coverage between them is uneven:
+The Cache A / Cache B distinction itself stays in §1 above — it is what keeps
+the two defects apart, and both documents need it.
 
-```
-RefreshToggleState()        capsstate.cpp:39   -> CAPITAL, NUMLOCK           (2 flags)
-GetCapsAndNumlockState()    kmhook_getmessage.cpp:418
-                                               -> RefreshToggleState()
-                                                  + K_SHIFT, L/RCTRL, L/RALT (7 flags)
-```
-
-Call sites:
-
-| trigger | handler | flags resynced |
-|---|---|---|
-| keyboard activated (`TIPActivateKeyboard`, `aiTIP.cpp:73`, deferred to next key event at `:186` — **this is #16422**) | `RefreshToggleState()` | **2** — Caps, Num only |
-| focus moves to a different window (`KM_FOCUSCHANGED` + `KMF_WINDOWCHANGED` + `IsFocusedThread`, `kmhook_getmessage.cpp:357`) | `GetCapsAndNumlockState()` | **7** |
-
-`GetCapsAndNumlockState` is called from **exactly one place**. So:
-
-### Finding 4a — #16422's resync is two flags short of its own sibling set
-
-A keyboard switch resyncs Caps and Num but leaves `K_SHIFTFLAG`, `LCTRLFLAG`,
-`RCTRLFLAG`, `LALTFLAG`, `RALTFLAG` stale. Same bug, same cache, same trigger,
-one field over — the fix is to call `GetCapsAndNumlockState()` (or factor out its
-modifier half) from the `FToggleStateRefreshRequired` branch at `aiTIP.cpp:186-189`
-instead of `RefreshToggleState()`.
-
-Note the naming is why this was easy to miss: the function that resyncs *all five
-modifiers* is called `GetCapsAndNumlockState`.
-
-### Finding 4b — both helpers use the wrong API for the modifier half
-
-`GetCapsAndNumlockState` tests modifiers with `GetKeyState(...) < 0`
-(`:423-436`). `GetKeyState` reports the **calling thread's processed input
-queue** — which is precisely the thing that is stale after events were dropped.
-The correct oracle for "is this key physically down right now" is
-`GetAsyncKeyState`.
-
-For the toggle bits (`GetKeyState(...) & 1`) `GetKeyState` is fine — toggles are
-not queue-dependent in the same way. It is only the five `< 0` modifier tests
-that ask the wrong source.
-
-### Finding 4c — Shift has no L/R split in Cache B, Ctrl and Alt do
-
-`ProcessModifierChange` (`kmhook_getmessage.cpp:453-457`):
-
-```c
-case VK_SHIFT:   flag = K_SHIFTFLAG; break;                        // one flag
-case VK_MENU:    flag = isExtended ? RALTFLAG  : LALTFLAG;  break; // two
-case VK_CONTROL: flag = isExtended ? RCTRLFLAG : LCTRLFLAG; break; // two
-```
-
-This makes Cache B **more** robust for Shift (any Shift release clears the only
-flag) and **less** robust for Ctrl and Alt (L and R latch independently, and a
-left-side release cannot clear a right-side latch). Another reason the right-hand
-modifiers are the ones that get stuck, and consistent with the field reports
-being about RAlt and Right Ctrl rather than the left-hand keys.
-
----
+[#16422]: https://github.com/keymanapp/keyman/issues/16422
+[#16423]: https://github.com/keymanapp/keyman/issues/16423
+[#8064]: https://github.com/keymanapp/keyman/issues/8064
 
 ## 5. Insert, and the `Zap Virtual Key Code` footgun
 
@@ -781,12 +771,7 @@ Per direction on 2026-08-23:
   here as repro + analysis. §3 is the part to lead with when it does go upstream:
   it is the mechanism, it is provable from code, and it explains the persistence
   the current write-ups flag as unexplained.
-- **Un-read-modifier-state (Cache B) work — belongs on the #16423 branch**, which
-  is already "stop trusting cached lock state, re-read it". Findings **4a**
-  (resync 7 flags, not 2) and **4b** (`GetAsyncKeyState` for the modifier half)
-  are the same shape as the Caps fix already on that branch, and are one-line
-  changes at `aiTIP.cpp:186-189` and `kmhook_getmessage.cpp:423-436`.
-
-Finding **4c** is an observation, not a bug — but it belongs in the #16423
-discussion because it explains *why* the right-hand modifiers are the ones users
-report.
+- **Un-read-modifier-state (Cache B) work — split out to
+  [`capslock/`](capslock/README.md)**, and belongs on the #16423 branch, which is
+  already "stop trusting cached lock state, re-read it". Findings **4a**, **4b**
+  and **4c** and the fixes that follow from them now live there.

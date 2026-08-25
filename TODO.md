@@ -1,17 +1,18 @@
-# TODO — stuck modifier / un-read modifier state
+# TODO — stuck modifier (Cache A, #8064)
 
-Working list across two defects that share a cache-staleness shape but land in
-different places. See `MODIFIERS.md` §1 for the Cache A / Cache B split and §7
-for why the destinations differ.
+Working list for the **stuck-modifier / phantom-keypress** defect (Cache A),
+upstream [#8064]. The Caps Lock / un-read-state defect (Cache B, #16422/#16423)
+shares the staleness shape but is a different bug and now lives in
+[`capslock/`](capslock/README.md). See `MODIFIERS.md` §1 for the split.
 
 **Status legend:** `[ ]` open `[~]` in progress `[x]` done `[-]` deferred by
 decision (not forgotten)
 
-**Destinations:**
-- **Cache A** (stuck modifier, phantom keypresses) -> this repo for now.
-  **Not being fixed in Keyman code yet** — explicit direction 2026-08-23.
-- **Cache B** (un-read modifier/toggle state) -> branch
-  `fix/windows/16422-caps-lock-state-on-keyboard-switch`, i.e. **PR #16423**.
+**Upstream:** [#8064] (rc-swag/Ross, open since 2023-01-23, milestone 20.0) — see
+`README.md` "Upstream issue" and `MEETING-PREP.md`. **Not being fixed in Keyman
+code yet**, explicit direction 2026-08-23. Port plan: `TEST-PLAN.md`, whose **P**
+(port), **X** (cross-platform) and **T11-T13** (gates) series continue this list
+and are not repeated here.
 
 Code refs are `windows/src/engine/keyman32/` at `a70538106c` unless noted.
 
@@ -277,6 +278,29 @@ so they come first.
 
 ---
 
+- [ ] **I13 — does `fakefreeze.exe` reproduce on a clean VM?** The direct test of
+  the non-repro question. `windows/src/support/fakefreeze/` posts the same
+  `KMC_WATCHDOG_FAKEFREEZE` this harness posts, and the handler
+  (`UfrmKeyman7Main.pas:868`) is an ungated `Sleep(5000)` — no debug flag, no
+  special build. **It has no `build.sh`**, so `./windows/build.sh` never produces
+  it (`TEST-PLAN.md` P0). A null result here means something else differs and is
+  worth knowing.
+
+- [ ] **I14 — which emitter latched the prefix VK?** I11 measured it 1/116, but
+  `kmaltgr.ps1`'s wire capture saw every prefix KEYDOWN matched by a KEYUP, so
+  that run caught only the **atomic** path (`keybd_sendprefix`,
+  `keybd_shift.cpp:112-118`, one `SendInput`). `PostDummyKeyEvent`
+  (`keyman32.cpp:923-926`) uses two separate `keybd_event` calls and is **not**
+  atomic; it is called from `k32_lowlevelkeyboardhook.cpp:294`,
+  `kmhook_keyboard.cpp:146` and `:195`.
+
+- [ ] **I15 — does Ross's focus-change observation answer I3?** His notes
+  (`issue-8064/ross-observations-2025-11-27.txt`) list three co-occurring events:
+  a modifier pressed, a backspace pressed, and **application focus changed**.
+  Backspace forces an injected batch, i.e. the *emission* step. A focus change is
+  a plausible **stall source** — which is exactly I3, the gap this repo could not
+  close. If it holds, the field story completes without the debug-only stimulus.
+
 ## 1a. Ruled out
 
 Kept so they are not re-investigated. From `HANDOFF.md` §5 and this session's
@@ -296,7 +320,7 @@ work.
 - **The original watchdog hypothesis** — that `LowLevelHookWatchDog` (18.0.245,
   `83251358b0`) tears out and reinstalls the hook on a healthy system and loses a
   modifier KEYUP in the gap. Not supported: the ghost key was absent from every
-  reproducing run. See `RESULTS-treatment-18.0.249.md` for the null result.
+  reproducing run: 27 iterations, 0 failures.
 - **Win, Apps, Fn, Scroll Lock and Insert as stuck-modifier candidates** — see
   `MODIFIERS.md` §2. Absent from `isModifierKey()` and from the `modifiers[6]`
   arrays; Fn never reaches Windows as a virtual key.
@@ -317,50 +341,11 @@ time — which is what made it the initial suspect.
 
 ---
 
-## 2. Fixes for PR #16423 (Cache B — un-read state)
+## 2. Fixes for the Caps Lock / un-read-state bug (Cache B)
 
-Same class as the Caps Lock fix already on that branch: stop trusting cached
-lock/modifier state, re-derive it from the OS. `MODIFIERS.md` §4.
-
-- [ ] **F1 — Resync all seven flags on keyboard switch, not two.** (finding 4a)
-  `aiTIP.cpp:186-189` fires `RefreshToggleState()` (Caps + Num only), leaving
-  `K_SHIFTFLAG`, `LCTRLFLAG`, `RCTRLFLAG`, `LALTFLAG`, `RALTFLAG` stale across a
-  keyboard switch. `GetCapsAndNumlockState()` (`kmhook_getmessage.cpp:418`)
-  already does all seven, but is reachable only from `KM_FOCUSCHANGED` (`:357`).
-  Sub-steps:
-  - [ ] Add a header declaration — it currently has **none**, only a file-local
-        forward decl at `kmhook_getmessage.cpp:71`. Natural home is `capsstate.h`
-        beside `RefreshToggleState`.
-  - [ ] Call it from the `FToggleStateRefreshRequired` branch.
-  - [ ] Decide whether the focus-change and keyboard-switch paths should share one
-        helper or keep the toggle-only variant for other callers.
-
-- [ ] **F2 — Use `GetAsyncKeyState` for the modifier half.** (finding 4b)
-  `kmhook_getmessage.cpp:423-436` tests the five modifiers with
-  `GetKeyState(...) < 0`, which reports the calling thread's *processed input
-  queue* — exactly what is stale after dropped events. Switch those five to
-  `GetAsyncKeyState`. **Leave the `& 1` toggle reads on `GetKeyState`**; toggles
-  are not queue-dependent the same way, and `GetAsyncKeyState` does not report
-  toggle state at all.
-
-- [ ] **F3 — Rename or comment `GetCapsAndNumlockState`.**
-  It resyncs five modifiers as well as the two toggles. The name is why F1 was
-  missed. `RefreshModifierAndToggleState` or similar; at minimum a comment.
-  Cosmetic, but it is the direct cause of a real bug surviving review.
-
-- [ ] **F4 — Put finding 4c in the PR description.**
-  Not a code change. `ProcessModifierChange` (`:453-457`) gives Shift a single
-  `K_SHIFTFLAG` while Ctrl and Alt get independent L/R flags, so a left-side
-  release cannot clear a right-side latch. This explains *why* users report RAlt
-  and Right Ctrl rather than the left-hand keys, and is useful context for
-  reviewers even though nothing needs fixing.
-
-- [ ] **F5 — Decide whether F1/F2 belong in #16423 or a follow-up.**
-  They are the same shape as the Caps fix and touch adjacent lines, which argues
-  for one PR. Against: #16423 is scoped to Caps Lock and already has review
-  history. Ask the reviewer rather than deciding unilaterally.
-
----
+**Moved to [`capslock/TODO.md`](capslock/TODO.md).** Separate defect, separate
+issues (#16422 / #16423), separate branch. Items **F1-F5** and gates **T1-T5**
+live there.
 
 ## 3. Deferred — Cache A fixes in Keyman code
 
@@ -441,13 +426,23 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
   §3b collapses, because every keyboard has a Left Ctrl. Pairs with **I7**.
   **Not yet run** — see **T9**.
 
-- [ ] **H4 — Propagate the known harness traps to the older scripts.**
-  Per `TRIGGER.md`: `kmhunt.ps1`, `kmrepro.ps1` and `kmflex.ps1` still resolve the
-  HKL from the top-level window (stale — must use `GetGUIThreadInfo(0).hwndFocus`)
-  and still use `Write-Host` (measured 4301 ms/line on a congested console, which
-  can silently let a 5 s freeze expire and turn a trial into a no-freeze
-  control). `kmproof.ps1` and `kmmods.ps1` are correct on both counts. **Any
-  number quoted from the other three is suspect until this is done.**
+- [x] **H4 — Propagate the known harness traps to the older scripts. CLOSED
+  2026-08-25 by archiving them instead of fixing them.**
+  `kmhunt.ps1`, `kmrepro.ps1`, `kmflex.ps1` and `kmshot.ps1` all resolved the HKL
+  from the top-level window (stale — must use `GetGUIThreadInfo(0).hwndFocus`) and
+  all used `Write-Host` (measured 4301 ms/line on a congested console, which can
+  silently let a 5 s freeze expire and turn a trial into a no-freeze control).
+
+  None of the four had remaining unique capability: `kmproof.ps1` and `kmmods.ps1`
+  each implement the freeze stimulus correctly, *and* confirm the async
+  `PostMessage` landed before proceeding — which `kmrepro.ps1` never did.
+  `kmrepro.ps1 Status` was the only residual value, and it is one line:
+  `(Get-Item "${env:ProgramFiles(x86)}\Keyman\Keyman Desktop\keyman.exe").VersionInfo.FileVersion`.
+  `kmflex.ps1`/`kmshot.ps1` drove FieldWorks, which is out of scope and is what
+  corrupted the lexicon (`HAZARDS.md` §2).
+
+  **Do not quote numbers from them.** Fixing five dead scripts was never worth it;
+  removing the ambiguity was.
 
 - [x] **H6 — Right Shift extended flag. RAISED, THEN DISPROVED.**
   `kmproof.ps1:288` had `@{V=0xA1;E=$true; L='RShift'}`. Right Shift is scan
@@ -490,28 +485,11 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
 
 ## 5. Final testing
 
-Gates before either defect is called done.
+Gates before the stuck-modifier defect is called done. The Caps Lock / Cache B
+gates live in [`capslock/TODO.md`](capslock/TODO.md).
 
-**For PR #16423 (F1, F2):**
-
-- [ ] **T1 — Keyboard-switch resync, live.** Set each of Caps, Num, Shift,
-  LCtrl, RCtrl, LAlt, RAlt stale while another keyboard is active, switch to the
-  Keyman keyboard, confirm all seven flags resync on the first key event. Seven
-  arms; pre-fix expect Caps and Num to pass and the other five to fail.
-- [ ] **T2 — AltGr regression.** The `TF_MOD_RALT|TF_MOD_LCONTROL` special case
-  at `aiTIP.cpp:467` is the most likely thing F1/F2 breaks. Every AltGr character
-  on `sil_cameroon_qwerty` must still produce the same codepoints. Use the
-  measured baseline in `TRIGGER.md` §3 (`;e` + RAlt+N -> U+0259 U+014B).
-- [ ] **T3 — Deadkey and multi-key rule regression.** Resyncing modifier state
-  mid-sequence could disturb rule matching across a deadkey. Exercise the
-  keyboard's deadkeys and any multi-keystroke rules.
-- [ ] **T4 — Cost of `GetAsyncKeyState` on the key path.** F2 adds five calls per
-  key event on a path that is already the thing that stalls. Measure; it should be
-  negligible, but "should be" is not a measurement on this code path.
-- [ ] **T5 — 64-bit host apps.** Blocked on **I5**. Verify in a 64-bit host
-  (FieldWorks) as well as a 32-bit one, and in a UWP app — `ProcessModifierChange`
-  exists in duplicate precisely because the GetMessage hook and TSF paths do not
-  both fire everywhere (`kmhook_getmessage.cpp:444-449`).
+**For the Caps Lock / Cache B defect (F1, F2):** gates **T1-T5** moved to
+[`capslock/TODO.md`](capslock/TODO.md).
 
 **For the scope question (`kmmods.ps1`, H1-H3):**
 
@@ -573,3 +551,5 @@ Gates before either defect is called done.
    list said earlier.
 6. **D1-D6** only when the Cache A work is picked up. **D1** should land as a
    shared helper with #16423's resync, not as a second independent patch.
+
+[#8064]: https://github.com/keymanapp/keyman/issues/8064

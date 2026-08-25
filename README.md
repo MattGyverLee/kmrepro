@@ -5,7 +5,7 @@ attribute one class of Keyman for Windows bug:
 
 > Typing suddenly comes out capitalised, or stops appearing entirely, while
 > Keyman still shows the correct keyboard as active. It behaves exactly as if a
-> modifier key were physically held down, but no key is stuck. Restarting Keyman
+> modifier key were physically held down, but no key is stuck. Restarting Keyman or the computer 
 > clears it.
 
 Investigated on **Keyman for Windows 18.0.249.0**, Windows 11 Pro 26200, against
@@ -13,6 +13,42 @@ Investigated on **Keyman for Windows 18.0.249.0**, Windows 11 Pro 26200, against
 
 Companion Keyman checkout: `../keyman`, branch
 `fix/windows/16422-caps-lock-state-on-keyboard-switch`.
+
+## Upstream issue
+
+This is **[keymanapp/keyman#8064][i8064]** — *"bug(windows): modifier key
+occasionally is 'stuck on'"*, opened by **rc-swag (Ross)** on 2023-01-23, still
+open, milestone 20.0. Its original report — typing `Lonh does does` and getting
+`LOnh DOes DOes` — is the same defect this repo reproduces. **File evidence
+there; do not open a new issue.**
+
+Ross has independently reached much of the same conclusion from field logs
+(`m_ModifierKeyboardState` never returning to 0; an `extra: 4b4d0000` KEYDOWN
+with no release; a latched Shift cleared only by the *right* Shift). His notes
+are mirrored in [`issue-8064/`](issue-8064/). Read
+**[MEETING-PREP.md](MEETING-PREP.md)** before talking to the Keyman team.
+
+Prior attempts on the same symptom: [#1620][i1620] (2019, sticky Left Control
+from AltGr), [#4884][i4884], [#7337][i7337] (2022 — the commit that created the
+cache feed), [#15179][p15179]/[#15219][p15219] (2025 hook watchdog, which
+mcdurdin has already noted did not resolve it).
+
+The **Caps Lock / un-read-state** defect ([#16422][i16422] / [#16423][i16423]) is
+a *different bug* that was explored here too. It has been split out to
+**[`capslock/`](capslock/README.md)** — same staleness shape, different cache,
+different symptom, no phantom keypress.
+
+Plan for porting this into Keyman's own test structures:
+**[TEST-PLAN.md](TEST-PLAN.md)**.
+
+[i8064]: https://github.com/keymanapp/keyman/issues/8064
+[i1620]: https://github.com/keymanapp/keyman/issues/1620
+[i4884]: https://github.com/keymanapp/keyman/issues/4884
+[i7337]: https://github.com/keymanapp/keyman/issues/7337
+[i16422]: https://github.com/keymanapp/keyman/issues/16422
+[i16423]: https://github.com/keymanapp/keyman/issues/16423
+[p15179]: https://github.com/keymanapp/keyman/pull/15179
+[p15219]: https://github.com/keymanapp/keyman/pull/15219
 
 ---
 
@@ -61,8 +97,8 @@ Two consequences that took the longest to establish:
 | AltGr is the seed for a stuck **Right** Ctrl | **NO, on this machine — MEASURED 2026-08-25, physically, on all three arms.** MSKLC is the only arm setting `KLLF_ALTGR`, and all 22 physical AltGr presses paired with a **non-extended LEFT Ctrl** (44/44 carrying Windows' `scan=0x21D` fake-Ctrl marker). The Keyman arm emits no Ctrl at all — its US base layout lacks the flag. Affected field hardware is now the only gap. `MODIFIERS.md` §3d-measured, `TODO.md` I1 |
 | The dev machine is itself the no-Right-Ctrl hardware class | **confirmed 2026-08-25.** It has no physical Right Ctrl key, so §3b's "the workaround is unavailable to the user" is a direct observation here rather than an extrapolation. `MODIFIERS.md` §3b |
 | Keyman's serializer replays keystrokes on non-Keyman layouts | **NO — measured 2026-08-25.** The Keyman arm doubled every keystroke with a `KM-SERIALIZED` replay; the MSKLC arm produced zero across 102 events. Holds alongside the charge-test row above — charging the wedge is not the same act as replaying a key, so do not read this as "Keyman is inert on other layouts". `MODIFIERS.md` §3d-measured |
-| **What stalls the thread in the field** | **NOT established.** The repro induces the stall with a debug-only command. CPU load alone did not reproduce it. This is the main open gap — `TODO.md` I3 |
-| The original watchdog hypothesis | **not supported.** See "Historical record" below |
+| **What stalls the thread in the field** | **NOT established.** The stall is induced deliberately; CPU load alone did not reproduce it (32 hogs / 16 cores, 0/10). This is the main open gap — `TODO.md` I3. Ross's focus-change observation is the best lead, see `issue-8064/README.md` §2. Note the stimulus is **not** debug-only: the handler is an ungated `Sleep(5000)` and already ships as `fakefreeze`; it simply has no `build.sh` |
+| The hypothesis this started from — that 18.0.245's `LowLevelHookWatchDog` tears the hook out and reinstalls it | **NOT SUPPORTED, and retracted.** The ghost key was absent from every reproducing run: 27 iterations, 0 failures. This agrees with mcdurdin's own note on #8064 that the watchdog PRs probably did not resolve it |
 
 ---
 
@@ -72,57 +108,51 @@ Start here and stop when you have what you need.
 
 | doc | what it is |
 |---|---|
-| **`report.md`** | One-page summary. Read first. |
+| **`issue-8064/README.md`** | **Read first.** This is #8064 and it is Ross's. His field evidence, the crosswalk against these findings, the two questions to ask him, and the ordered path to closing the issue. |
 | **`TRIGGER.md`** | The full write-up: plain-language description, the defect chain with code refs, the reproduction, and **§3, the three-arm controlled proof**. Also carries the hard-won harness traps — read those before writing any test here. |
 | **`MODIFIERS.md`** | Which modifier keys are actually in scope. Rules Win, Fn, Scroll Lock and Insert out; explains phantom Right Ctrl on hardware that has no such key; separates the two independent caches. |
 | **`FIX-PROPOSAL.md`** | Proposed fixes in order of value, with the caveats not to overstate in a PR. |
 | **`HAZARDS.md`** | **Read before writing or changing harness code.** FLEx and FieldWorks operational hazards plus the safety rules for the live language data. Two of these corrupted the user's lexicon. |
-| **`TODO.md`** | Working list: investigations, the PR #16423 fixes, deferred Cache A work, harness gaps, test gates, and suggested order. |
-
-### Historical record — read with a date in mind
-
-These predate the current understanding and are kept because they contain the
-measurements, not because their conclusions hold.
-
-| doc | caveat |
-|---|---|
-| `PROTOCOL.md` | Test protocol for the **original hypothesis** — that the `LowLevelHookWatchDog` added in 18.0.245 tears out and reinstalls the hook. **That hypothesis was not supported**; the ghost key was absent from every reproducing run. |
-| `RESULTS-control-18.0.238.md` | Control baseline, pre-watchdog build. All clean. |
-| `RESULTS-treatment-18.0.249.md` | Treatment run. Watchdog confirmed present and live, but the hypothesised failure did not reproduce in 45 iterations. This is the null result that redirected the investigation. |
-| `archive/HANDOFF.md` | Archived 2026-08-23. Framed around the unsupported watchdog hypothesis, and its status header predates the upgrade it was waiting on. Its live content was extracted first: the hazards and safety rules to `HAZARDS.md`, the secondary suspects and ruled-out list to `TODO.md` §1 and §1a. |
-| `archive/` | Superseded scripts: `kmwedge.ps1` (structured on the wrong assumption — trigger inside each iteration), `kmstick.ps1`, and earlier reports. |
+| **`TODO.md`** | Working list: investigations, deferred Cache A work, harness gaps, test gates, and suggested order. The Cache B fixes moved to [`capslock/TODO.md`](capslock/TODO.md). |
+| **`TEST-PLAN.md`** | Plan for porting these findings into Keyman's own test structures: the repro recipe, the gtest and manual-test deliverables, and the cross-platform prevention work. Companion: `MEETING-PREP.md`. |
+| **`capslock/`** | The separate Caps Lock / Cache B defect (#16422 / #16423). |
 
 ---
 
 ## Scripts
 
-**Use `kmproof.ps1` and `kmmods.ps1`.** They are the only scripts correct on both
-known harness hazards (see the warning below). They test perpendicular axes of
-the same experiment: `kmproof` fixes the modifier and varies the keyboard,
-`kmmods` fixes the keyboard and varies the modifier.
+Three, and all three are correct on both known measurement hazards. `kmproof` and
+`kmmods` test perpendicular axes of the same experiment: `kmproof` fixes the
+modifier and varies the keyboard, `kmmods` fixes the keyboard and varies the
+modifier. `kmaltgr` reads the wire underneath both.
 
 | script | role |
 |---|---|
 | **`kmproof.ps1`** | **Attribution.** Three-arm controlled test — US / MSKLC / Keyman, one stimulus, only the active keyboard varies. This is what supports the "it is Keyman" claim. Modes include `-ChargeTest` (charge while inactive, fire on activation) and `-Sweep` (separate Keyman-only causation from machine-wide blast radius). Exercises **LShift and RAlt only**. |
 | **`kmmods.ps1`** | **Scope.** Which of the thirteen candidate keys can actually be stuck. Same stimulus applied to each of the six Cache A slots *and* to Insert / Win / Apps / NumLock / CapsLock / ScrollLock as negative controls, so `MODIFIERS.md` §2 stops being inference. Carries the modifier-agnostic **state oracle** (`GetAsyncKeyState`) that `kmproof`'s case-change oracles cannot provide, which is what makes Ctrl measurable at all. `-Latch <MOD>` is the missing-key permanence arm. Covers `TODO.md` H1, H2 and H3. |
 | **`kmaltgr.ps1`** | **Wire-level logger.** A `WH_KEYBOARD_LL` hook recording `vkCode` / `scanCode` / `flags` / `dwExtraInfo` for every event on the machine, with the hook and message pump in C# so the callback cannot exceed `LowLevelHooksTimeout`. Decodes Keyman's two markers (`scan 0xFF` = synthesized, `extraInfo 0x4B4D0000` = serializer replay) and Windows' AltGr fake-Ctrl marker (`scan 0x21D`). Built for `TODO.md` I1; it also captured `keybd_shift_reset`'s unmatched KEYDOWN directly. **Logs every keystroke while running — do not type passwords.** |
-| `kmhunt.ps1` | Earlier single-keyboard version. Answers "what *transitions* Keyman from clean to wedged" via probe -> action -> probe. Can show the wedge but **cannot attribute it** — with one keyboard you cannot separate Keyman from the layout, from Windows, or from the harness. |
-| `kmrepro.ps1` | Rig for the original watchdog hypothesis. `Status`, `Arm`, `Freeze`, `GhostKey`, `ModWatch`, `Soak`, `AutoTest`. Still useful for `Status` (build/watchdog identification) and for inducing the stall. |
-| `kmflex.ps1` | FieldWorks driver. FLEx auto-switches keyboard per writing system, which makes clicking between an Ngoreme field and an English field a clean keyboard-switch vector. FLEx RootSite views expose no UI Automation text, so verification is by screenshot. |
-| `kmshot.ps1` | Screen capture and positional click helper, for targets UI Automation cannot read. |
 
-### [WARN] Three of the older scripts carry known-bad patterns
+Both `kmproof.ps1` and `kmmods.ps1` implement the freeze stimulus themselves, and
+both **confirm the asynchronous `PostMessage` actually landed** before the trial
+proceeds. That confirmation is the whole difference between candidate B
+(intermittent) and candidate I (deterministic), and any new harness needs it.
 
-`kmhunt.ps1`, `kmrepro.ps1` and `kmflex.ps1` have **not** been updated for two
-hazards that were found the hard way. **Any number quoted from those three is
-suspect until `TODO.md` H4 is done.**
+Build identification needs no script:
 
-1. **They resolve the keyboard layout from the top-level window.** Windows 11
+```powershell
+(Get-Item "${env:ProgramFiles(x86)}\Keyman\Keyman Desktop\keyman.exe").VersionInfo.FileVersion
+```
+
+### [WARN] Two hazards to design against
+
+Both cost a round of false results. Any new harness can reintroduce them.
+
+1. **Do not resolve the keyboard layout from the top-level window.** Windows 11
    Notepad's frame window sits on a thread pinned at `0x0409` forever, while the
    focused edit control is on a different thread that tracks the input locale
    correctly. Reading the frame thread reports `0x0409` while Keyman is
    demonstrably live. Resolve from `GetGUIThreadInfo(0).hwndFocus` instead.
-2. **They use `Write-Host`.** Measured on this machine with a congested console:
+2. **Do not use `Write-Host`.** Measured on this machine with a congested console:
    `Write-Host` **4301 ms/line** versus `[Console]::Out.WriteLine` 0.4 ms/line.
    That is a *correctness* hazard here, not a speed one — multi-second dead time
    can let a 5 s freeze expire before the probe runs, silently turning a trial
@@ -157,9 +187,6 @@ Notepad open with the Keyman Cameroon keyboard active.
 
 ```powershell
 cd D:\Github\_Projects\_KM\kmrepro
-
-# What build is this, and is the watchdog present?
-powershell -ExecutionPolicy Bypass -File .\kmrepro.ps1 Status
 
 # Confirm the three keyboards are distinguishable and output-identical
 powershell -ExecutionPolicy Bypass -File .\kmproof.ps1 -FingerprintOnly
@@ -240,11 +267,20 @@ project's, so they are kept out of the repository by default. To publish a
 specific set deliberately:
 
 ```powershell
-git add -f archive/reports-control/*.png
+git add -f <path-to-the-screenshots>/*.png
 ```
 
-`logs-treatment/` holds the raw run logs from the treatment build and is tracked.
-`altgr-physical-keyman-arm.txt` / `.csv` and `altgr-physical-msklc-arm.txt` /
-`.csv` are the two I1 physical captures — 20 and 22 real AltGr presses
-respectively. Kept because a negative result is only citable with its raw
-evidence attached, and the MSKLC one is the actual answer to I1.
+`logs/` holds raw run evidence from the three live scripts and is tracked:
+`altgr-physical-keyman-arm.{txt,csv}` and `altgr-physical-msklc-arm.{txt,csv}` are
+the two physical AltGr captures — 20 and 22 real presses — and the MSKLC one is the
+actual answer to `TODO.md` I1. `mods-prefix-latch-evidence.txt` is the six-key
+scope matrix. A negative result is only citable with its raw evidence attached,
+which is why these are here rather than summarised away.
+
+⚠️ The summary table *inside* `mods-prefix-latch-evidence.txt` predates the `self`
+column and shows the immune keys as "2/2 latched" from §2c residue — **quote
+`MODIFIERS.md` §2b instead.**
+
+Nothing in `logs/` carries a measurement hazard: output from superseded harnesses
+was moved out, and seven byte-identical duplicate runs were removed outright.
+

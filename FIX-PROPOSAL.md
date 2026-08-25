@@ -1,8 +1,17 @@
 # FIX PROPOSAL — phantom stuck modifier (Keyman for Windows)
 
-Derived from a deterministic repro on 18.0.249.0 (`kmhunt.ps1 -Only A,B -Repeat 3`:
-A clean 3/3, B wedged 3/3, differing in one line). Code refs are from
+This is **[keymanapp/keyman#8064][i8064]**. Read
+[`issue-8064/README.md`](issue-8064/README.md) first — Ross (rc-swag) owns the
+issue, has independently reached most of this from field logs, and authored the
+commit that created the cache feed.
+
+Derived from a deterministic repro on 18.0.249.0: candidate A (identical stimulus,
+no stall) **0/20** across all ten candidate keys; candidate I (modifier released
+into a *confirmed* stall) **10/10**, and 3/3 on the charge test. Reproduce with
+`kmproof.ps1` and `kmmods.ps1`. Code refs are from
 `fix/windows/16422-caps-lock-state-on-keyboard-switch`.
+
+[i8064]: https://github.com/keymanapp/keyman/issues/8064
 
 ## The defect chain
 
@@ -128,9 +137,17 @@ and cheaper than "restart Keyman".
 
 ## Caveats — do not overstate these in a PR
 
-- The stall is induced with `KMC_WATCHDOG_FAKEFREEZE`, a **debug-only** command.
-  The mechanism is proven; the *field* path that stalls that thread is not. CPU
-  load alone (32 hogs / 16 cores) did **not** reproduce it.
+- The stall is induced deliberately, with `KMC_WATCHDOG_FAKEFREEZE`. The
+  mechanism is proven; the *field* path that stalls that thread is not. CPU load
+  alone (32 hogs / 16 cores) did **not** reproduce it, so do not offer load as the
+  explanation. **Ross's focus-change observation is the best lead** —
+  [`issue-8064/README.md`](issue-8064/README.md) §2.
+
+  Correction worth carrying: this command is **not** debug-only. Its handler at
+  `UfrmKeyman7Main.pas:868` is a bare `Sleep(5000)` with no gate, and it already
+  ships as `windows/src/support/fakefreeze/` (mcdurdin, 2025-11-17). The only
+  reason nobody else can run it is that the directory has no `build.sh`, so
+  `./windows/build.sh` never produces it — `TEST-PLAN.md` **P0**.
 - ~~The **US-layout control was never run**, so "Keyman is required" is a strong
   inference from the code path, not a measured fact.~~ **Now measured** — see
   `TRIGGER.md` §3. Three-arm controlled test, same stimulus and load throughout:
@@ -150,6 +167,8 @@ and cheaper than "restart Keyman".
   reports describe persistence until a Keyman restart; that gap is unexplained and
   may indicate a second contributing factor.
 - The **watchdog hypothesis this investigation started from is not supported** —
-  the ghost key was absent from every reproducing run.
+  the ghost key was absent from every reproducing run (27 iterations, 0 failures).
+  Volunteer this: it agrees with mcdurdin's own note on #8064 that the watchdog PRs
+  probably did not resolve it.
 - `serialkeyeventserver.cpp` ends in `#endif // !_WIN64`. Confirm the equivalent
   path for 64-bit host apps before assuming a fix covers them.

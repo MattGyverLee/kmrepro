@@ -17,7 +17,10 @@ These cost hours and twice corrupted live language data.
 1. **Navigation keys MUST carry `KEYEVENTF_EXTENDEDKEY`.** Unextended, Left's scan
    code `0x4B` *is* numpad-4, Right `0x4D` is numpad-6, Home `0x47` is numpad-7 —
    they insert characters instead of moving the caret. **This corrupted the user's
-   lexicon twice.** All navigation now routes through `Nav()` in `kmflex.ps1`.
+   lexicon twice.** **FieldWorks testing is now out of scope** (`TEST-PLAN.md` §7)
+   and the driver that caused this is gone. The entry is kept so nobody rebuilds
+   one without routing every navigation key through a single guarded helper that
+   sets `KEYEVENTF_EXTENDEDKEY`.
 2. **PowerShell variable names are case-insensitive.** `$EXT` (constant) collided
    with `$Ext` (switch parameter). Same class of bug: a helper named `R` resolved
    to the built-in alias for `Invoke-History` — aliases outrank functions.
@@ -29,7 +32,8 @@ These cost hours and twice corrupted live language data.
    reads the frame thread and is stale forever. Resolve from
    `GetGUIThreadInfo(0).hwndFocus` and it discriminates cleanly — verified by
    same-thread A/B on 2026-08-23 (Keyman `0x04092000`, MS Cameroon `0xF0C00436`,
-   US `0x04090409`). `kmproof.ps1` relies on this; `kmflex.ps1`'s `Get-Hkl` now
+   US `0x04090409`). `kmproof.ps1` and `kmmods.ps1` rely on this; any new
+   `Get-Hkl`
    returns both readings plus a `Diverged` flag.
 
    **The FLEx observation above is NOT explained by that, and is not retracted.**
@@ -57,7 +61,7 @@ These cost hours and twice corrupted live language data.
 9. `keyman.exe`'s `Path` is unreadable from an unelevated shell — read the version
    from the registry.
 10. FLEx field Y-coordinates **shift between entries** and as fields gain content.
-    Re-check with `kmflex.ps1 Shot` if anything looks wrong. Current test entry:
+    Re-check by hand if anything looks wrong. Current test entry:
     Ngq Citation Form `(1000, 325)`, Eng Note `(1000, 490)`.
 
 ---
@@ -68,7 +72,7 @@ These cost hours and twice corrupted live language data.
   DB is restorable and any entry is expendable, and created a dedicated test entry
   (headword `Ngq`, entry 698/2234) — **use only that entry**.
 - Every FLEx write must be self-cleaning (`Read-AndClear`). Verify the entry is
-  unchanged with `kmflex.ps1 Shot` after a run.
+  unchanged after a run — verify by hand, and prefer not driving FieldWorks at all.
 - **Do not spam Ctrl+Z to fix mistakes.** The undo stack mixes your changes with
   the user's work; an over-undo silently reverts their edits. If you corrupt
   something, say so and let the user restore.

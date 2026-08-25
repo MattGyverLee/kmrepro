@@ -63,17 +63,29 @@ never notices the mistake.
   arrives as Ctrl+Shift+A. So a user may well report "my whole computer has gone
   strange", with no reason to connect it to their keyboard software.
 
-### Why slow and heavily loaded machines are worse
+### Why it is so hard to catch — and why load is NOT the answer
 
-The bug needs Keyman's main thread to be unresponsive for around a second at the
-wrong instant. On a fast, idle machine that essentially never happens. On a slow
-machine, or one running a very large FieldWorks database, that thread being
-briefly starved is routine — which matches the field reports exactly: **slower
-machines and enormous databases see this far more often.**
+The bug needs two things to coincide: Keyman's main thread unresponsive for around
+a second, **and a modifier KEYUP arriving inside that window**. Either alone is
+harmless.
 
-This also means it is **probably not a new bug**. Nothing about the mechanism
-requires any recent change to Keyman, which fits a problem that has been reported
-for years without ever being pinned down.
+It is tempting to say "so slow, loaded machines see it more often". **That was
+tested and it is not what the numbers say.** Under 32 CPU hogs on 16 cores, with
+no induced stall: **0/10**. With the stall and *zero* load: **10/10**. Load is
+neither necessary nor sufficient. The full table is in `TEST-PLAN.md` §1.
+
+What load plausibly does is raise the *rate* at which the thread is briefly
+starved, which would raise the *chance* of the coincidence. That is a reasonable
+inference and it fits the field reports of slower machines and enormous FieldWorks
+databases suffering more — but it is an inference, not a measurement here, and it
+must not be stated as one. The measured statement is narrower and stronger: **the
+stall is the mechanism, and it has to coincide with a modifier release.**
+
+This does mean it is **probably not a new bug**. Nothing about the mechanism
+requires any recent change to Keyman, which fits a problem reported for years
+without ever being pinned down — and it is in fact
+[#8064](https://github.com/keymanapp/keyman/issues/8064), open since 2023-01-23.
+See `issue-8064/README.md`.
 
 ### Why it seems to fix itself
 
@@ -177,24 +189,35 @@ keys arrive as `WM_SYSKEYDOWN` and are eaten as menu accelerators.
 
 ### Reproduction
 
-`kmhunt.ps1` — probe, one action, probe. Behavioural oracle, **case-sensitive**.
-For the controlled three-keyboard version, and the numbers actually worth
-quoting, use `kmproof.ps1` and see §3.
+Use **`kmproof.ps1`** (fixes the modifier, varies the keyboard) and **`kmmods.ps1`**
+(fixes the keyboard, varies the modifier). They are the only two scripts correct on
+both known harness hazards below, and the only ones whose numbers should be quoted.
 
 | candidate | modifier | keyman.exe blocked? | observed |
 |---|---|---|---|
-| **A** (control) | LShift held 1.5 s, released | no | clean |
-| **B** | LShift held, released *into* the block | yes | **wedged** |
-| **I** | as B, but block confirmed live first | yes | **wedged 3/3** via `kmproof.ps1 -ChargeTest` (§3) |
+| **A** (control) | LShift held 1.5 s, released | no | clean — **0/20** across all ten keys |
+| **B** | LShift held, released *into* the block | yes | **wedged**, intermittently — the block is posted but not confirmed |
+| **I** | as B, but block confirmed live first | yes | **wedged 3/3**, and 10/10 on the sweep |
 
 ```powershell
 cd D:\Github\_Projects\_KM\kmrepro
-powershell -ExecutionPolicy Bypass -File .\kmhunt.ps1 -Only A,B -Repeat 3
+# shortest end-to-end demo, ~90 s
+powershell -ExecutionPolicy Bypass -File .\kmproof.ps1 -Sweep -SweepTrials 1 -LoadThreads 4
+# the decisive experiment: charge while a Microsoft keyboard is active, fire on switching back
+powershell -ExecutionPolicy Bypass -File .\kmproof.ps1 -ChargeTest 3 -LoadThreads 4
+# the scope matrix, six slots plus immune-key negative controls
+powershell -ExecutionPolicy Bypass -File .\kmmods.ps1 -LoadThreads 4
 ```
 
-Note `kmhunt.ps1` measures one keyboard at a time and so cannot, on its own,
-attribute the wedge to Keyman rather than to the layout, to Windows or to the
-harness. That is what `kmproof.ps1` was written for.
+The A-vs-B difference is the whole result: **the block is the mechanism**, and
+candidate B is intermittent only because `PostMessage` is asynchronous — with a
+fixed delay the KEYUP can be released *before* the freeze begins, degenerating the
+trial into the A control. Candidate I confirms the block is live first, which is
+why it is deterministic.
+
+> Earlier single-keyboard runs are superseded and their numbers should not be
+> quoted: with one keyboard you cannot attribute the wedge to Keyman rather than to
+> the layout, to Windows, or to the harness.
 
 Wedged signature: `;e` + RAlt+N yields `əŊ` (U+0259 **U+014A**) instead of `əŋ`
 (U+0259 **U+014B**); in the fuller form, `:EŊ` — Shift applied to everything.
@@ -231,7 +254,7 @@ Two confounders, the second now understood:
 2. **There are two Cameroon keyboards on this machine** — the Keyman TIP
    (langid `0x2000`) and a Microsoft/MSKLC layout (langid `0x0436`). **Both map
    `;e` -> U+0259**, so the behavioural check alone cannot distinguish them, and
-   Win+Space cycling lands on either. `kmhunt.ps1` now logs the langid on every
+   Win+Space cycling lands on either. The live scripts log the langid on every
    trial; **earlier results predate that and are therefore unattributable.**
    Re-run before trusting any rate.
 
@@ -294,9 +317,9 @@ Cross-checked against the Windows tray input indicator read via UI Automation,
 which names the active method in words (`aal-Latn-CM / Cameroon QWERTY` vs
 `Afrikaans / Cameroon QWERTY 2017`). Two independent oracles, agreeing.
 
-`kmproof.ps1` uses the focus thread everywhere and reads the HKL in exactly one
-place (`Get-FocusKeyboard`). `kmhunt.ps1`, `kmrepro.ps1` and `kmflex.ps1` still
-resolve from the top-level window and are still exposed to the stale reading.
+`kmproof.ps1` and `kmmods.ps1` use the focus thread everywhere and read the HKL
+in exactly one place (`Get-FocusKeyboard`). Any harness that resolves it from the
+top-level window instead is exposed to the stale reading — `TODO.md` H4.
 
 Two traps this exposed, both live:
 
@@ -334,13 +357,11 @@ Two traps this exposed, both live:
   `[Console]::Out.WriteLine` **0.4 ms/line** vs `Add-Content` 1.8 ms/line. Not an
   I/O problem — a console-host problem, and it appears only once the console is
   congested, so nothing looks wrong in the log. This is a **correctness** hazard
-  for a timing experiment: `kmhunt.ps1` calls `Say` from inside candidate I's
-  action and between trigger and probe, so multi-second dead time can let a 5 s
-  freeze expire before the probe runs and silently turn a trial into a no-freeze
-  control. `kmproof.ps1` uses `[Console]::Out.WriteLine`; `kmhunt.ps1`,
-  `kmrepro.ps1` and `kmflex.ps1` still use `Write-Host`. **The bimodal
-  all-or-nothing counts in `kmhunt.ps1`'s header should be re-checked on this
-  basis before being quoted.**
+  for a timing experiment. An earlier harness logged from inside candidate I's
+  action and between trigger and probe, so multi-second dead time could let a 5 s
+  freeze expire before the probe ran and silently turn a trial into a no-freeze
+  control — which is why its bimodal all-or-nothing counts are not quoted anywhere.
+  `kmproof.ps1` and `kmmods.ps1` use `[Console]::Out.WriteLine` throughout.
 - The wedge is often **transient at the OS level**, so an external probe run
   seconds later reports clean. Measure inside the failing iteration.
 - **Never clear the test field with keystrokes.** Ctrl+A + Delete works fine on a
