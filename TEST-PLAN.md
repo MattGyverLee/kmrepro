@@ -61,7 +61,7 @@ The bug lives entirely in that out-of-scope part, and consists precisely of keys
 | 3 | Its sole feed is a `PostMessage`; a stall drops it. **That one stale byte is the entire residue of the delay** | [`k32_lowlevelkeyboardhook.cpp:200`][llh200] |
 | 4 | Every injected batch re-presses what the cache believes → **KEYDOWN with no KEYUP** | [`:384`][sks384] → [`keybd_shift.cpp:161`][kbsr] |
 | 5 | Right Ctrl is emitted as `VK_CONTROL`+`KEYEVENTF_EXTENDEDKEY` — a key the machine may not have; only the exact KEYUP clears it | [`keybd_shift.cpp:69`][kb69], [MODIFIERS §3b][m3b] |
-| 6 | Feed sits **32 lines before** the pass-through filter ⇒ the cache re-confirms its own hallucination, and charges while Keyman is inactive (**3/3**) | [`:229`][llh229], [TRIGGER §3][tr3] |
+| 6 | Feed sits **35 lines before** the pass-through filter ⇒ the cache re-confirms its own hallucination, and charges while Keyman is inactive (**3/3**) | [`:229`][llh229], [TRIGGER §3][tr3] |
 | 7 | *(different defect — see [`capslock/`](capslock/README.md))* Cache B: keyboard switch resyncs **2** flags, focus change resyncs **7**; the modifier half reads `GetKeyState` (thread queue — the stale source) | [`capsstate.cpp:39`][cs39], [`kmhook_getmessage.cpp:418`][gm418], [`aiTIP.cpp:186`][ai186] |
 
 **Key enabler for testing:** `keybd_shift_release`/`keybd_shift_reset` never call `SendInput` — they only fill a caller-supplied `INPUT[]`. They are pure functions over a 256-byte array.
@@ -278,7 +278,7 @@ Branch `<type>/<scope>/<issue>-<slug>` ([`prepare-commit-msg:56`][pcm]) — a ma
 [tc]: https://github.com/keymanapp/keyman/blob/master/resources/teamcity/windows/windows-actions.inc.sh
 
 [lx1009]: https://github.com/keymanapp/keyman/blob/master/linux/ibus-keyman/src/engine.c#L1009
-[mac121]: https://github.com/keymanapp/keyman/blob/master/mac/Keyman4MacIM/Keyman4MacIM/KMInputMethodEventHandler.m#L121
+[mac121]: https://github.com/keymanapp/keyman/blob/master/mac/Keyman4MacIM/Keyman4MacIM/KMInputMethodEventHandler.m#L124
 [macprop]: https://github.com/keymanapp/keyman/blob/master/mac/Keyman4MacIM/Keyman4MacIM/KMInputMethodAppDelegate.h#L79
 [kmxp]: https://github.com/keymanapp/keyman/blob/master/core/src/kmx/kmx_processor.cpp#L263
 [sthpp]: https://github.com/keymanapp/keyman/blob/master/core/src/state.hpp#L216

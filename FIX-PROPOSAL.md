@@ -56,8 +56,11 @@ into a *confirmed* stall) **10/10**, and 3/3 on the charge test. Reproduce with
 
 4. **The modifier cache is write-only from that one event stream.**
    `serialkeyeventserver.cpp:581` — `m_ModifierKeyboardState[bVk] = fIsUp ? 0 : 0x80`
-   is reachable *only* from `UpdateLocalModifierState`, driven *only* by those
-   posted events. It is seeded from the OS once, at
+   is reachable *only* from `UpdateLocalModifierState`, whose three call sites
+   (`:508`, `:514`, `:535`) all sit in the one window procedure serving
+   `WM_KEYMAN_MODIFIER_EVENT` **and** `WM_KEYMAN_KEY_EVENT`. Both are posted from
+   the same LL hook, so a stall starves the cache either way — but the feed is
+   both messages, not the modifier post alone. It is seeded from the OS once, at
    `serialkeyeventserver.cpp:251` (`GetKeyboardState`) in `InitThread()`, and
    **never re-validated for the life of the process.**
 
@@ -163,12 +166,17 @@ and cheaper than "restart Keyman".
   PR with that.
 - Every reproduced wedge here cleared on the next KEYUP — with one exception
   worth noting: one run went from wedged to **emitting nothing at all** under the
-  same six-modifier sweep. So recovery is reliable but not guaranteed. The field
-  reports describe persistence until a Keyman restart; that gap is unexplained and
-  may indicate a second contributing factor.
+  same six-modifier sweep (`TODO.md` I4). So recovery is reliable but not
+  guaranteed. The field reports' persistence-until-restart is **no longer a gap**:
+  a latched modifier is cleared only by its exact matching KEYUP, and when the
+  latched key does not physically exist that event cannot be produced
+  (`MODIFIERS.md` §3b, measured; `Phantom_RCTRL.md` §3-4).
 - The **watchdog hypothesis this investigation started from is not supported** —
-  the ghost key was absent from every reproducing run (27 iterations, 0 failures).
-  Volunteer this: it agrees with mcdurdin's own note on #8064 that the watchdog PRs
-  probably did not resolve it.
+  every reproduction here was obtained with the watchdog's hook-reinstall never
+  provoked at all (`kmproof.ps1` 3/3 candidate I, 10/10 sweep; `kmmods.ps1` six
+  slots 2/2). The freeze alone is sufficient. The original ghost-key arm produced
+  no wedge either, but those runs came from `kmwedge.ps1`, since archived, so its
+  counts are not quoted. Volunteer this: it agrees with mcdurdin's own note on
+  #8064 that the watchdog PRs probably did not resolve it.
 - `serialkeyeventserver.cpp` ends in `#endif // !_WIN64`. Confirm the equivalent
   path for 64-bit host apps before assuming a fix covers them.

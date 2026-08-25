@@ -132,7 +132,7 @@ so they come first.
   `_td->state.vkey` and **ignores both return values**, while `QueueAction`
   (`appint/appint.cpp:51-57`) refuses and beeps at `MAXACTIONQUEUE - 1` = 1023.
   At exactly that boundary the down lands and the up is dropped, and
-  `aiWin2000Unicode.cpp:138-166` — where VKEYDOWN and VKEYUP are independent
+  `aiWin2000Unicode.cpp:138-172` — where VKEYDOWN (`:138`) and VKEYUP (`:168`) are independent
   `case` arms with nothing pairing them — `SendInput`s an unmatched KEYDOWN for
   the key the user just pressed.
   **Why it matters:** it is the only known path to a stuck *ordinary* key, and it
@@ -319,8 +319,11 @@ work.
   Nothing shipped broken.
 - **The original watchdog hypothesis** — that `LowLevelHookWatchDog` (18.0.245,
   `83251358b0`) tears out and reinstalls the hook on a healthy system and loses a
-  modifier KEYUP in the gap. Not supported: the ghost key was absent from every
-  reproducing run: 27 iterations, 0 failures.
+  modifier KEYUP in the gap. Not supported: every reproduction in this repo was
+  obtained with the reinstall never provoked at all — the freeze alone is
+  sufficient (`kmproof.ps1` 3/3 candidate I, 10/10 sweep; `kmmods.ps1` six slots
+  2/2). The original ghost-key arm produced no wedge either, but those runs came
+  from the now-archived `kmwedge.ps1`, so its counts are not quoted.
 - **Win, Apps, Fn, Scroll Lock and Insert as stuck-modifier candidates** — see
   `MODIFIERS.md` §2. Absent from `isModifierKey()` and from the `modifiers[6]`
   arrays; Fn never reaches Windows as a virtual key.
@@ -397,8 +400,8 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
   axis: the keyboard is the constant and the **key** is the variable. All six
   Cache A slots are stimulus targets, and Insert / Win / Apps / NumLock /
   CapsLock / ScrollLock run as **negative controls** under the identical
-  stimulus, so `MODIFIERS.md` §2 stops being inference. **Not yet run** — see
-  **T9**.
+  stimulus, so `MODIFIERS.md` §2 stops being inference. **Run 2026-08-24** — see
+  **T9** and `MODIFIERS.md` §2b.
 
 - [x] **H2 — A Ctrl-capable oracle.** Done. `kmmods.ps1` carries a
   **state oracle**: `GetAsyncKeyState` across all 17 watched VKs plus the three
@@ -416,15 +419,19 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
   is no longer safe to type with a possible Ctrl latch. `j`, `k`, `q` are bound
   to nothing under Ctrl or Alt.
 
-- [x] **H3 — Missing-key permanence arm.** Done: `kmmods.ps1 -Latch <MOD>`.
-  Latches the key by injection using the exact byte pattern
-  `do_keybd_event` produces (`keybd_shift.cpp:69-73` rewrites `VK_RCONTROL` to
-  `VK_CONTROL` + `KEYEVENTF_EXTENDEDKEY`), then tries each clearing action in
+- [x] **H3 — Missing-key permanence arm.** Done: `kmmods.ps1 -Latch <MOD>`, run
+  2026-08-24 (**T9**).
+  Latches the key by injecting an unmatched `VK_CONTROL` + `KEYEVENTF_EXTENDEDKEY`
+  — the same VK and flag `do_keybd_event` uses for `VK_RCONTROL`
+  (`keybd_shift.cpp:68-72`), but with the **real scan `0x1D`**, not Keyman's
+  `SCAN_FLAG_KEYMAN_KEY_EVENT` (`0xFF`). That is deliberate: `0x1D` keeps the
+  injection indistinguishable from hardware at the `:229-233` filter, and makes
+  the result a statement about the *general* seed rather than about Keyman's own
+  re-assertion loop (`Phantom_RCTRL.md` §5). It then tries each clearing action in
   turn — ordinary typing, a tap of the **other side**, then the exact matching
   KEYUP — and reports which one worked. The sibling-tap step is the crux: if
   tapping LCtrl clears a latched RCtrl, the "no physical Right Ctrl" story in
   §3b collapses, because every keyboard has a Left Ctrl. Pairs with **I7**.
-  **Not yet run** — see **T9**.
 
 - [x] **H4 — Propagate the known harness traps to the older scripts. CLOSED
   2026-08-25 by archiving them instead of fixing them.**
@@ -528,10 +535,14 @@ gates live in [`capslock/TODO.md`](capslock/TODO.md).
 
 ## 6. Suggested order
 
-1. **I1** and **I5** first — both change what the rest of this list should say.
-   I1 sets the severity of the Right Ctrl finding; I5 sets the coverage claims.
-2. **H4** next, and before quoting any further numbers. Three of four scripts
-   carry two known-bad patterns.
+1. ~~**I1**~~ is answered for everything measurable on this machine (2026-08-25);
+   only affected field hardware is still owed, and `Phantom_RCTRL.md` §7 argues
+   that no longer decides severity. **I5** is now the one that changes what the
+   rest of this list may claim — it sets the coverage claims, and today it is
+   inference. Do it first.
+2. ~~**H4**~~ closed 2026-08-25 by archiving the four bad scripts. The rule it
+   existed to enforce still stands: quote numbers from `kmproof.ps1`,
+   `kmmods.ps1` and `kmaltgr.ps1` only.
 3. **F1 / F2 / F3** — self-contained, reviewable, and independent of the Cache A
    question. Gate on **T1-T5**. Settle **F5** with the reviewer before opening.
 4. ~~**H2 -> H1 -> H3**~~ (built as `kmmods.ps1`), ~~**T9**~~ and ~~**T10**~~ are

@@ -165,10 +165,15 @@ serialkeyeventserver.cpp:251   GetKeyboardState(m_ModifierKeyboardState);   // I
 serialkeyeventserver.cpp:581   m_ModifierKeyboardState[bVk] = fIsUp ? 0 : 0x80;
 ```
 
-Line 581 is reachable only from `UpdateLocalModifierState`, driven only by the
-posted events from step 2. It is seeded from the OS exactly once, at thread
-startup, and **never reconciled with the OS again for the lifetime of the
-process**. A missed KEYUP leaves the byte at `0x80` indefinitely.
+Line 581 is reachable only from `UpdateLocalModifierState`, which has **three**
+call sites (`:508`, `:514`, `:535`) — all inside the one window procedure, which
+serves both `WM_KEYMAN_MODIFIER_EVENT` and `WM_KEYMAN_KEY_EVENT`. Both messages
+are `PostMessage`d from the same LL hook in step 2, so a stall drops the feed
+either way; but say "the posted events", not "the posted *modifier* event" — the
+narrower claim is wrong on its face and Ross wrote this code. It is seeded from
+the OS exactly once, at thread startup, and **never reconciled with the OS again
+for the lifetime of the process**. A missed KEYUP leaves the byte at `0x80`
+indefinitely.
 
 **5. The stale byte is then actively re-asserted on every keystroke.**
 
@@ -530,7 +535,8 @@ Two further notes from source:
   sync". The synchronisation mechanism is the desynchronisation vector: the post
   is dropped when the hook thread is blocked, and the cache is seeded from the OS
   exactly once (`serialkeyeventserver.cpp:251`, `InitThread`) and never
-  reconciled again (`:581` is the only writer).
+  reconciled again (`:581` is the only writer, fed from `UpdateLocalModifierState`'s
+  three call sites at `:508`/`:514`/`:535`).
 - `isKeymanKeyboardActive` is maintained by a *GetMessage* hook
   (`kmhook_getmessage.cpp:405`, matching the KMTip CLSID in an atom string), so it
   flips on window/focus/TSF activity — which is the "fire on switch" half of the
@@ -570,10 +576,14 @@ What this finding does change:
 - One machine, one Windows build (11 Pro 26200), one Keyman build (18.0.249.0).
 - The stall is induced with the debug-only `KMC_WATCHDOG_FAKEFREEZE`. This proves
   the *mechanism*; it is not the field path.
-- All keystrokes are **injected** (`keybd_event`). Injection is demonstrably
-  sufficient to trigger the wedge, but Keyman can distinguish synthetic keys
-  (`LLKHF_INJECTED`, and the `dwExtraInfo`/`SCAN_FLAG_KEYMAN_KEY_EVENT` checks at
-  :229-233), so a physical-keyboard result is not strictly implied.
+- All wedge-trial keystrokes are **injected** (`keybd_event`). This is weaker than
+  it looks: on the Cache A path `LLKHF_INJECTED` is never consulted, and the
+  harness injects with `dwExtraInfo = 0` and a real scan code, so the filter at
+  `:229-233` cannot distinguish it from hardware — there is no branch for a
+  physical key to take differently (`MODIFIERS.md` §3b, `Phantom_RCTRL.md` §2a).
+  Physical input **was** captured at the wire for the AltGr arms
+  (`MODIFIERS.md` §3d-measured), but not for a wedge trial, so the residual gap is
+  a physical-fingers reproduction rather than a code path.
 - Recovery: the injected six-modifier sweep cleared it 3/3, and a physical
   double-tap on LShift also clears it. One earlier run went wedged →
   `NO-OUTPUT` under the same sweep, so recovery is not perfectly reliable.
@@ -593,15 +603,16 @@ cd D:\Github\_Projects\_KM\kmrepro
 
 ### What is NOT established
 
-- That the watchdog is involved. **It is not**: the LowLevelHookWatchDog ghost key
-  was absent from every reproducing run. The hypothesis this investigation began
-  with (`83251358b0`, 18.0.245) is unsupported.
+- That the watchdog is involved. **It is not**: every reproduction here was
+  obtained with the LowLevelHookWatchDog's hook-reinstall never provoked at all —
+  the freeze alone is sufficient. The hypothesis this investigation began with
+  (`83251358b0`, 18.0.245) is unsupported. Counts from the original ghost-key arm
+  came from the now-archived `kmwedge.ps1` and are not quoted.
 - The field path that stalls the thread. CPU load alone did not do it (32 hogs on
   16 cores — and that crashed the host PowerShell with `OutOfMemoryException`).
   `-LoadThreads 4` plus the debug freeze is what reproduces here.
-- Whether physical keystrokes behave as injected ones do — see scope limits in §3.
-- Why the field symptom persists until a Keyman restart when reproduced wedges
-  here cleared on a modifier edge. There may be a second factor.
+- Whether a physical wedge trial behaves as an injected one does — see scope
+  limits in §3.
 
 **Now established** (was "that Keyman is strictly required"): Keyman is required,
 and more than that — the corruption occurs while Keyman is not even the active

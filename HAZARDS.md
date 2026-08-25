@@ -33,8 +33,9 @@ These cost hours and twice corrupted live language data.
    `GetGUIThreadInfo(0).hwndFocus` and it discriminates cleanly — verified by
    same-thread A/B on 2026-08-23 (Keyman `0x04092000`, MS Cameroon `0xF0C00436`,
    US `0x04090409`). `kmproof.ps1` and `kmmods.ps1` rely on this; any new
-   `Get-Hkl`
-   returns both readings plus a `Diverged` flag.
+   HKL helper should return **both** readings — frame thread and focus thread —
+   plus a `Diverged` flag, so a stale frame-thread value is visible rather than
+   silently believed.
 
    **The FLEx observation above is NOT explained by that, and is not retracted.**
    FLEx changes keyboards *programmatically* from its writing-system combo, which
@@ -55,7 +56,7 @@ These cost hours and twice corrupted live language data.
    `ValuePattern` on `RichEditD2DPT` — prefer Notepad for anything that doesn't
    need FLEx specifically.
 8. **`keybd_event` with `dwExtraInfo = 0` is deliberate.** Keyman only filters on
-   `dwExtraInfo != 0` (`k32_lowlevelkeyboardhook.cpp:227`), so 0 makes Keyman treat
+   `dwExtraInfo != 0` (`k32_lowlevelkeyboardhook.cpp:229`), so 0 makes Keyman treat
    synthesized keys as real user input. Do not "fix" this to SendInput with a
    marker.
 9. `keyman.exe`'s `Path` is unreadable from an unelevated shell — read the version

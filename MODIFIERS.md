@@ -359,7 +359,7 @@ if(QueueSize > MAXACTIONQUEUE - 1) { MessageBeep(0xFFFFFFFF); return FALSE; }
 
 **Both return values are ignored.** `MAXACTIONQUEUE` is 1024 (`appint.h:51`). At
 exactly `QueueSize == 1023` the VKEYDOWN takes the last slot and the VKEYUP is
-silently refused. `aiWin2000Unicode.cpp:138-166` then builds the `INPUT` batch
+silently refused. `aiWin2000Unicode.cpp:138-172` then builds the `INPUT` batch
 from the queue — `QIT_VKEYDOWN` and `QIT_VKEYUP` are handled in **separate,
 independent `case` arms with nothing pairing them** — and `SendInput`s a real
 KEYDOWN for `_td->state.vkey`, **the key the user just pressed**, with no KEYUP
@@ -416,7 +416,7 @@ provably **not** hardware and provably **not** self-healing.
 
 `keybd_shift_reset()` (`keybd_shift.cpp:161-176`) emits, for every byte in Cache A
 sitting at `0x80`, a KEYDOWN **with no matching KEYUP**. For `VK_RCONTROL`,
-`do_keybd_event()` (`keybd_shift.cpp:69-73`) rewrites it:
+`do_keybd_event()` (`keybd_shift.cpp:68-72`) rewrites it:
 
 ```c
 case VK_RCONTROL:
@@ -446,9 +446,18 @@ is restarting Keyman.
 
 ### 3b measured, 2026-08-24
 
-`kmmods.ps1 -Latch RCTRL` injects the byte pattern `keybd_shift_reset` produces
-(`vk=0x11 VK_CONTROL, scan=0x1D, KEYEVENTF_EXTENDEDKEY`, no matching KEYUP) and
-then tries each clearing action in turn:
+`kmmods.ps1 -Latch RCTRL` injects an unmatched `vk=0x11 VK_CONTROL, scan=0x1D,
+KEYEVENTF_EXTENDEDKEY` and then tries each clearing action in turn:
+
+⚠️ **This is a generic injector's byte pattern, not Keyman's own.**
+`keybd_shift_reset` emits the same VK and flag but with
+`scan = SCAN_FLAG_KEYMAN_KEY_EVENT` = **0xFF** (`keybd_shift.cpp:169`); the
+harness uses the real `0x1D` from `MapVirtualKey` (`kmmods.ps1:988`). The
+difference is deliberate and load-bearing in both directions: 0x1D is what makes
+step 3's injected KEYUP indistinguishable from hardware at the `:229-233` filter
+(see below), and it is also what makes step 0 a demonstration of the **general**
+seed rather than of Keyman's re-assertion loop — see `Phantom_RCTRL.md` §5. Do
+not describe this run as replaying Keyman's own bytes.
 
 | # | action | cleared it? |
 |---|---|---|
@@ -465,13 +474,18 @@ persistence-until-Keyman-restart is expected behaviour rather than a mystery.
 Step 2 is the one that mattered: had the sibling tap cleared it, the whole
 missing-key story would have collapsed, because Left Ctrl is always available.
 
-#### This dev machine IS the affected hardware class — confirmed 2026-08-25
+#### This dev machine IS the affected hardware class — established 2026-08-25
 
 Worth stating plainly, because it was assumed rather than established until now:
-**this machine has no physical Right Ctrl key.** The `kmaltgr.ps1` MSKLC capture
-recorded seven clean Ctrl tap pairs, every one arriving as `LCTRL scan=0x1D`
-non-extended with a matching KEYUP — those were the Left Ctrl, and there is no
-right-hand one to press.
+**this machine has no physical Right Ctrl key.**
+
+**Where that comes from, precisely.** The primary evidence is the **user's own
+statement**, 2026-08-25. The `kmaltgr.ps1` MSKLC capture *corroborates* it — seven
+clean Ctrl tap pairs, every one arriving as `LCTRL scan=0x1D` non-extended with a
+matching KEYUP (`logs/altgr-physical-msklc-arm.txt:52-117`) — but it cannot do
+more than that: a wire capture shows which keys **were** pressed, and no capture
+can demonstrate the *absence* of a key. Do not cite it as "confirmed at the wire";
+cite it as the user's report, corroborated at the wire.
 
 So §3 is not being reasoned about at arm's length. The development machine is a
 member of the exact hardware population the section describes, which is why §3b's
@@ -488,8 +502,9 @@ control on a path with no branch in it. Cheap if such a keyboard is already at
 hand; not worth sourcing one, and **not** a substitute for the field-hardware
 reading that item 2 actually needs.
 
-This closes a gap `FIX-PROPOSAL.md` currently lists as unexplained: *"The field
-reports describe persistence until a Keyman restart; that gap is unexplained."*
+This closes a gap `FIX-PROPOSAL.md` used to list as unexplained — *"the field
+reports describe persistence until a Keyman restart"* — and that caveat has now
+been rewritten there to point here.
 For L/R Shift and L/R Alt the wedge self-heals on the next physical tap, which is
 why the repro kept seeing it clear. For a missing-key modifier it cannot heal.
 **Persistence-until-restart is expected behaviour when the latched key does not
@@ -634,6 +649,15 @@ Left Control key ourselves […] and hope for the best."* The LCTRL seed conditi
 is therefore documented engine behaviour on every AltGr layout, not something
 anyone has to hunt for.
 
+Note what the rescue actually builds (`:483-497`): an `INPUT[2]` whose first
+element is `VK_CONTROL`, `wScan = 0x21D`, `KEYEVENTF_KEYUP`, `dwExtraInfo =
+EXTRAINFO_FLAG_SERIALIZED_USER_KEY_EVENT` — and both elements are then fed
+straight back into `UpdateLocalModifierState` at `:508` and `:514`, whether or not
+`SendInput` was called. So the rescue is a **fourth writer path into Cache A**,
+separate from the LL hook's modifier post, and it is Keyman writing its own
+synthesized event into its own cache. Worth knowing before anyone patches the
+ternary at `:558` and assumes they have covered every entrance.
+
 **3. That rescue (`:447`) has three conjuncts, and each is a failure mode.** If
 any fails, no simulated release is emitted and the LCTRL slot stays at `0x80`:
 
@@ -751,8 +775,9 @@ order:
    accompanies AltGr. If it is ever extended, the seed is every keystroke and the
    severity of this whole bug goes up sharply. **Answered NO on this machine**
    (§3d-measured, 2026-08-25): the Keyman arm synthesizes no Ctrl whatsoever, and
-   the MSKLC arm's synthetic Ctrl is `LCTRL`, non-extended. Still owed: a physical
-   reading on the MSKLC arm, and anything at all from field hardware.
+   the MSKLC arm's synthetic Ctrl is `LCTRL`, non-extended — and that MSKLC
+   reading **was** physical, 22 real presses. Still owed: anything at all from
+   affected field hardware.
 
 Also worth noting for the oracle design: the existing case-sensitivity trap
 (`-ceq` / `-cne`) is a **Shift**-specific artifact. A stuck Ctrl produces no case

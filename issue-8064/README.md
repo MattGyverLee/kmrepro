@@ -28,7 +28,7 @@ other half of his work, not a competing account of it.**
 
 | Ross, verbatim from the field | this repo | status of the pairing |
 |---|---|---|
-| *"`m_ModifierKeyboardState=[LS:80 … RS:80 …]` — There is never a return to RS:0. **Why**"* | Cache A is seeded from the OS exactly once (`serialkeyeventserver.cpp:251`) and never reconciled; its only writer is `:581`, driven only by the posted modifier event | **his question, answered.** `../MODIFIERS.md` §1, proof step 2 |
+| *"`m_ModifierKeyboardState=[LS:80 … RS:80 …]` — There is never a return to RS:0. **Why**"* | Cache A is seeded from the OS exactly once (`serialkeyeventserver.cpp:251`) and never reconciled; its only writer is `:581`, driven only by the events the LL hook posts — `WM_KEYMAN_MODIFIER_EVENT` **and** `WM_KEYMAN_KEY_EVENT`, via `UpdateLocalModifierState`'s three call sites at `:508`/`:514`/`:535` | **his question, answered.** `../MODIFIERS.md` §1, proof step 2 |
 | *"the last message of this type is a **pressed and not released** … extra: `4b4d0000` which means injected by keyman. There is no message after this to say the key is released"* | `keybd_shift_reset()` emits a KEYDOWN for every modifier the cache believes is held, with **no matching KEYUP** | **his observation, reproduced at the wire.** `kmaltgr.ps1` captured `DN LSHIFT scan=0xFF` unmatched during a live trial — `../MODIFIERS.md` §2a-wire, proof step 4 |
 | *"746 `Key pressed` and only 221 `Key released`"* | a dropped modifier KEYUP is the seed; the hook is bypassed when its owning thread stalls past `LowLevelHooksTimeout` | **the same defect from opposite ends** — he counted the deficit, this repo caused one on demand. Proof step 3 |
 | *"pressing the left shift key would not release the stuck shift key but pressing the **right** Shift key did"* — independently on **System 8 and System 1** | a latched modifier is cleared **only by the exact matching KEYUP**: not by typing, not by tapping the other side | **mutual confirmation, and the most valuable single pairing.** Measured deliberately in `../MODIFIERS.md` §3b; he saw it twice in the field without looking for it |
@@ -83,7 +83,7 @@ matching KEYUP — and the rule has a case with no user recovery at all: **Right
 on hardware that has no Right Ctrl key.** He had the rule in his hands and could
 only read it as a quirk, because a Shift-only sample contains nothing but keys that
 have two physical instances. That worst case is not hypothetical: this dev machine
-has no physical Right Ctrl, confirmed at the wire, so `../MODIFIERS.md` §3b's *"the
+has no physical Right Ctrl (the user's report, corroborated at the wire), so `../MODIFIERS.md` §3b's *"the
 workaround is unavailable to the user"* is a direct observation here rather than an
 extrapolation.
 
@@ -181,7 +181,11 @@ worst keys are invisible to the obvious oracle. Note that neither of those is a
 Offer these before anyone finds them.
 
 - **The watchdog hypothesis this investigation started from is wrong.** The ghost
-  key was absent from every reproducing run — 27 iterations, 0 failures. This
+  key is not required for any of it: every reproduction here was obtained with the
+  hook-reinstall never provoked at all (`kmproof.ps1` 3/3 candidate I, 10/10
+  sweep; `kmmods.ps1` six slots 2/2). The original ghost-key arm produced no wedge
+  either, but those runs came from the now-archived `kmwedge.ps1`, so its counts
+  are not quoted. This
   **corroborates mcdurdin's own note** on #8064 that #15219 probably did not
   resolve it, which turns a retraction into agreement.
 - **H6 (Right Shift extended flag) was raised, then disproved** at the wire.

@@ -95,10 +95,11 @@ Two consequences that took the longest to establish:
 | …but a stuck letter *is* reachable by a **different** defect | **proven from code, unmeasured.** Dropped `QIT_VKEYUP` at the queue-full boundary — `kmprocess.cpp:181-182` ignores both `QueueAction` return values. Narrow reachability. `TODO.md` I10 |
 | A stuck **prefix VK** is reachable by a third defect | **proven from code, unmeasured.** `PostDummyKeyEvent` uses two non-atomic `keybd_event` calls. Invisible to every text oracle; only `GetAsyncKeyState` sees it. `TODO.md` I11 |
 | AltGr is the seed for a stuck **Right** Ctrl | **NO, on this machine — MEASURED 2026-08-25, physically, on all three arms.** MSKLC is the only arm setting `KLLF_ALTGR`, and all 22 physical AltGr presses paired with a **non-extended LEFT Ctrl** (44/44 carrying Windows' `scan=0x21D` fake-Ctrl marker). The Keyman arm emits no Ctrl at all — its US base layout lacks the flag. Affected field hardware is now the only gap. `MODIFIERS.md` §3d-measured, `TODO.md` I1 |
-| The dev machine is itself the no-Right-Ctrl hardware class | **confirmed 2026-08-25.** It has no physical Right Ctrl key, so §3b's "the workaround is unavailable to the user" is a direct observation here rather than an extrapolation. `MODIFIERS.md` §3b |
+| The dev machine is itself the no-Right-Ctrl hardware class | **established 2026-08-25, on the user's report** — corroborated by the wire capture (seven Ctrl taps, all `LCTRL`), which cannot by itself prove a key's absence. So §3b's "the workaround is unavailable to the user" is a direct observation here rather than an extrapolation. `MODIFIERS.md` §3b |
 | Keyman's serializer replays keystrokes on non-Keyman layouts | **NO — measured 2026-08-25.** The Keyman arm doubled every keystroke with a `KM-SERIALIZED` replay; the MSKLC arm produced zero across 102 events. Holds alongside the charge-test row above — charging the wedge is not the same act as replaying a key, so do not read this as "Keyman is inert on other layouts". `MODIFIERS.md` §3d-measured |
 | **What stalls the thread in the field** | **NOT established.** The stall is induced deliberately; CPU load alone did not reproduce it (32 hogs / 16 cores, 0/10). This is the main open gap — `TODO.md` I3. Ross's focus-change observation is the best lead, see `issue-8064/README.md` §2. Note the stimulus is **not** debug-only: the handler is an ungated `Sleep(5000)` and already ships as `fakefreeze`; it simply has no `build.sh` |
-| The hypothesis this started from — that 18.0.245's `LowLevelHookWatchDog` tears the hook out and reinstalls it | **NOT SUPPORTED, and retracted.** The ghost key was absent from every reproducing run: 27 iterations, 0 failures. This agrees with mcdurdin's own note on #8064 that the watchdog PRs probably did not resolve it |
+| **Whether Cache A exists in the 64-bit engine** | **NOT established — inference only.** `serialkeyeventserver.cpp` is wrapped `#ifndef _WIN64` (`:7`/`:595`). The working assumption is that keyman.exe is 32-bit, hosts the single server, and its `SendInput` reaches 64-bit hosts like any other injected input — which is what makes the "machine-wide" and "blast radius" rows above cover 64-bit apps. **That step is unverified.** `TODO.md` I5 |
+| The hypothesis this started from — that 18.0.245's `LowLevelHookWatchDog` tears the hook out and reinstalls it | **NOT SUPPORTED, and retracted.** Every reproduction in this repo was obtained with the watchdog's hook-reinstall never provoked at all: `kmproof.ps1` 3/3 on candidate I and 10/10 on the sweep, `kmmods.ps1` six slots 2/2. The freeze alone is sufficient; the ghost key is not required. The original ghost-key arm produced no wedge either, but those runs came from `kmwedge.ps1`, since archived, so its counts are not quoted. This agrees with mcdurdin's own note on #8064 that the watchdog PRs probably did not resolve it |
 
 ---
 
@@ -257,30 +258,4 @@ Two environment facts that invalidated earlier runs:
   Dvorak, a langid-only check lets the ASCII oracle silently lie. Require
   `0x04090409` exactly.
 
----
-
-## Data and privacy
-
-`.gitignore` excludes all image formats. The FieldWorks screenshots show real
-Ngoreme lexical entries, which are the language community's data rather than this
-project's, so they are kept out of the repository by default. To publish a
-specific set deliberately:
-
-```powershell
-git add -f <path-to-the-screenshots>/*.png
-```
-
-`logs/` holds raw run evidence from the three live scripts and is tracked:
-`altgr-physical-keyman-arm.{txt,csv}` and `altgr-physical-msklc-arm.{txt,csv}` are
-the two physical AltGr captures — 20 and 22 real presses — and the MSKLC one is the
-actual answer to `TODO.md` I1. `mods-prefix-latch-evidence.txt` is the six-key
-scope matrix. A negative result is only citable with its raw evidence attached,
-which is why these are here rather than summarised away.
-
-⚠️ The summary table *inside* `mods-prefix-latch-evidence.txt` predates the `self`
-column and shows the immune keys as "2/2 latched" from §2c residue — **quote
-`MODIFIERS.md` §2b instead.**
-
-Nothing in `logs/` carries a measurement hazard: output from superseded harnesses
-was moved out, and seven byte-identical duplicate runs were removed outright.
 
