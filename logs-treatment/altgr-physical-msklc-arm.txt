@@ -1,0 +1,178 @@
+﻿10:54:52.492 ================= kmaltgr: low-level keyboard logger (TODO I1) =================
+10:54:52.505 [PRIVACY] a global keyboard hook is now active. EVERY keystroke on this machine
+10:54:52.505           is being logged while this runs. Do not type passwords.
+10:54:52.506 log = C:\Users\thoua\AppData\Local\Temp\kmrepro\altgr-20260825-105452.txt
+10:54:52.506 
+10:54:52.510 hook installed.
+10:54:52.546 focus keyboard: MSKLC (HKL=0xFFFFFFFFF0C00436 langid=0x0436)
+10:54:52.547 
+10:54:52.552 ---- passive watch, 45s ----
+10:54:57.562      45s left  (52 events)
+10:55:02.580      40s left  (72 events)
+10:55:07.591      35s left  (90 events)
+10:55:12.605      30s left  (90 events)
+10:55:17.617      25s left  (102 events)
+10:55:22.632      20s left  (102 events)
+10:55:27.641      15s left  (102 events)
+10:55:32.654      10s left  (102 events)
+10:55:37.667       5s left  (102 events)
+10:55:37.981 
+10:55:37.985 captured 102 key events
+10:55:37.986 
+10:55:37.987 EVENT LOG
+10:55:37.988          ms  dir  vk         scan    flags                extra           phase
+10:55:38.027        83.2  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.029        99.0  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.030       115.9  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.031       130.5  UP   RALT       0x38    EXT                                  watch
+10:55:38.032       400.6  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.033       415.8  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.034       448.2  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.035       465.6  UP   RALT       0x38    EXT                                  watch
+10:55:38.036       638.5  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.037       653.9  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.053       700.3  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.054       715.5  UP   RALT       0x38    EXT                                  watch
+10:55:38.056       859.8  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.057       875.8  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.058       923.3  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.059       938.2  UP   RALT       0x38    EXT                                  watch
+10:55:38.062      1543.2  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.063      1559.7  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.064      1590.9  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.065      1606.5  UP   RALT       0x38    EXT                                  watch
+10:55:38.066      1701.5  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.067      1716.5  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.068      1764.1  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.069      1780.6  UP   RALT       0x38    EXT                                  watch
+10:55:38.070      1861.1  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.071      1876.4  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.071      1909.1  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.072      1924.9  UP   RALT       0x38    EXT                                  watch
+10:55:38.073      2898.3  DN   LCTRL      0x1D    -                                    watch
+10:55:38.075      2979.2  UP   LCTRL      0x1D    -                                    watch
+10:55:38.076      3123.7  DN   LCTRL      0x1D    -                                    watch
+10:55:38.077      3204.3  UP   LCTRL      0x1D    -                                    watch
+10:55:38.078      3717.2  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.079      3733.7  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.080      3797.1  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.081      3813.0  UP   RALT       0x38    EXT                                  watch
+10:55:38.083      3939.1  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.084      3954.8  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.086      4001.3  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.087      4016.6  UP   RALT       0x38    EXT                                  watch
+10:55:38.088      4159.6  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.089      4176.7  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.090      4224.2  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.091      4240.2  UP   RALT       0x38    EXT                                  watch
+10:55:38.093      4497.6  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.095      4513.7  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.095      4577.0  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.097      4593.0  UP   RALT       0x38    EXT                                  watch
+10:55:38.098      4749.9  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.099      4765.2  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.099      4829.8  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.100      4845.8  UP   RALT       0x38    EXT                                  watch
+10:55:38.101      5695.5  DN   LCTRL      0x1D    -                                    watch
+10:55:38.102      5758.2  UP   LCTRL      0x1D    -                                    watch
+10:55:38.102      5902.2  DN   LCTRL      0x1D    -                                    watch
+10:55:38.104      5950.8  UP   LCTRL      0x1D    -                                    watch
+10:55:38.104      6093.3  DN   LCTRL      0x1D    -                                    watch
+10:55:38.105      6157.9  UP   LCTRL      0x1D    -                                    watch
+10:55:38.107      9425.6  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.108      9440.1  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.108      9487.5  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.109      9503.8  UP   RALT       0x38    EXT                                  watch
+10:55:38.110      9629.3  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.110      9645.6  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.111      9693.0  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.112      9709.3  UP   RALT       0x38    EXT                                  watch
+10:55:38.113      9833.9  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.113      9849.1  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.114      9881.7  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.115      9898.1  UP   RALT       0x38    EXT                                  watch
+10:55:38.116     10024.1  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.116     10039.7  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.117     10074.8  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.118     10086.9  UP   RALT       0x38    EXT                                  watch
+10:55:38.119     10213.4  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.120     10228.9  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.121     10261.4  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.123     10277.0  UP   RALT       0x38    EXT                                  watch
+10:55:38.123     10422.3  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.124     10439.4  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.125     10469.6  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.126     10487.5  UP   RALT       0x38    EXT                                  watch
+10:55:38.127     10612.3  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.128     10629.3  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.129     10660.5  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.130     10676.8  UP   RALT       0x38    EXT                                  watch
+10:55:38.130     10805.3  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.131     10820.9  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.132     10852.0  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.133     10868.0  UP   RALT       0x38    EXT                                  watch
+10:55:38.134     23746.9  DN   LCTRL      0x1D    -                                    watch
+10:55:38.135     23763.0  UP   LCTRL      0x1D    -                                    watch
+10:55:38.136     23825.5  DN   LCTRL      0x1D    -                                    watch
+10:55:38.137     23888.7  UP   LCTRL      0x1D    -                                    watch
+10:55:38.138     24358.8  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.139     24375.2  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.140     24421.9  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.141     24438.7  UP   RALT       0x38    EXT                                  watch
+10:55:38.142     24534.1  DN   LCTRL      0x21D*  ALTDOWN                              watch
+10:55:38.143     24550.6  DN   RALT       0x38    EXT|ALTDOWN                          watch
+10:55:38.145     24598.3  UP   LCTRL      0x21D*  -                                    watch
+10:55:38.146     24613.7  UP   RALT       0x38    EXT                                  watch
+10:55:38.146     * 0x21D = Windows' synthetic AltGr Ctrl;  0xFF = SCAN_FLAG_KEYMAN_KEY_EVENT
+10:55:38.147       KM-SERIALIZED = EXTRAINFO_FLAG_SERIALIZED_USER_KEY_EVENT, the serializer replaying a real key
+10:55:38.148 
+10:55:38.187 =================== ANALYSIS 1: AltGr / Ctrl pairing (I1) ===================
+10:55:38.197   22 Right Alt keydown(s) seen.
+10:55:38.210   RAlt DN at      99.0 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.8 ms before)
+10:55:38.213   RAlt DN at     415.8 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.2 ms before)
+10:55:38.214   RAlt DN at     653.9 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.4 ms before)
+10:55:38.217   RAlt DN at     875.8 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (16.0 ms before)
+10:55:38.218   RAlt DN at    1559.7 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (16.5 ms before)
+10:55:38.221   RAlt DN at    1716.5 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.0 ms before)
+10:55:38.223   RAlt DN at    1876.4 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.3 ms before)
+10:55:38.226   RAlt DN at    3733.7 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (16.5 ms before)
+10:55:38.228   RAlt DN at    3954.8 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.7 ms before)
+10:55:38.231   RAlt DN at    4176.7 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (17.1 ms before)
+10:55:38.233   RAlt DN at    4513.7 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (16.1 ms before)
+10:55:38.236   RAlt DN at    4765.2 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.2 ms before)
+10:55:38.239   RAlt DN at    9440.1 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (14.5 ms before)
+10:55:38.242   RAlt DN at    9645.6 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (16.3 ms before)
+10:55:38.245   RAlt DN at    9849.1 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.2 ms before)
+10:55:38.248   RAlt DN at   10039.7 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.6 ms before)
+10:55:38.251   RAlt DN at   10228.9 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.5 ms before)
+10:55:38.254   RAlt DN at   10439.4 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (17.0 ms before)
+10:55:38.258   RAlt DN at   10629.3 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (17.0 ms before)
+10:55:38.261   RAlt DN at   10820.9 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (15.6 ms before)
+10:55:38.265   RAlt DN at   24375.2 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (16.4 ms before)
+10:55:38.273   RAlt DN at   24550.6 ms [watch] <- Ctrl LCTRL scan=0x21D ALTDOWN EXTENDED=False (16.5 ms before)
+10:55:38.274 
+10:55:38.318   44 of the Ctrl events carried scanCode 0x21D, which is Windows' own marker for
+10:55:38.319   the synthetic AltGr Ctrl. That is positive confirmation the synthesis fired,
+10:55:38.320   rather than an unrelated Ctrl happening to land nearby.
+10:55:38.322 
+10:55:38.322   [I1 ANSWERED - NO, on this machine] every AltGr-paired Ctrl was NON-extended,
+10:55:38.322   i.e. LEFT Ctrl, which is the standard Windows behaviour. On this hardware the
+10:55:38.324   AltGr path seeds LCTRL, not RCTRL.
+10:55:38.324   That does NOT clear the field hardware: I1 asks about affected machines, and
+10:55:38.325   a vendor Fn-layer driver remapping Right Ctrl is exactly the population at
+10:55:38.326   risk (MODIFIERS.md s3d item 2). Record this as a negative on THIS machine.
+10:55:38.326   Note also: an LCTRL seed is still a stuck Ctrl. It latches 7/7 too. It is just
+10:55:38.327   clearable by the user, because every keyboard has a physical Left Ctrl.
+10:55:38.328 
+10:55:38.329 ============ ANALYSIS 2: Keyman-injected events (scan 0xFF) ============
+10:55:38.332   None seen. Keyman emits scanCode 0xFF (SCAN_FLAG_KEYMAN_KEY_EVENT, keyman64.h:132)
+10:55:38.333   on everything it synthesizes, so either Keyman injected nothing or its keyboard
+10:55:38.333   was not active. Type through a Keyman keyboard while this runs to capture them.
+10:55:38.335 
+10:55:38.340 ============ ANALYSIS 3: every extended Ctrl seen, any source ============
+10:55:38.343   None. No E0-prefixed Ctrl reached the hook from any source during this run.
+10:55:38.344 
+10:55:38.345   csv : C:\Users\thoua\AppData\Local\Temp\kmrepro\altgr-20260825-105452.csv
+10:55:38.346   log : C:\Users\thoua\AppData\Local\Temp\kmrepro\altgr-20260825-105452.txt
+10:55:38.347 ===============================================================================
+10:55:38.350 hook removed.

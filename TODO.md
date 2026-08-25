@@ -23,8 +23,8 @@ Ordered by value-per-hour. I1 and I5 change what the other sections should say,
 so they come first.
 
 - [~] **I1 — Does the AltGr-synthesized Ctrl ever carry the extended bit?**
-  *No, on this machine — physically confirmed on the Keyman arm 2026-08-25.
-  Physical MSKLC arm and all field hardware still owed.*
+  ***ANSWERED NO on this machine, all three arms, physical where it matters —
+  2026-08-25. Only affected field hardware still owed.***
   The linchpin of the Right Ctrl seed question (`MODIFIERS.md` §3d.3). Standard
   Windows behaviour is a *Left*, non-extended Ctrl, which would seed `LCTRL`. But
   `aiTIP.cpp:467` special-cases `TF_MOD_RALT|TF_MOD_LCONTROL`, so Keyman already
@@ -37,62 +37,58 @@ so they come first.
   the Keyman TIP, the MSKLC layout, and US, on both this machine and affected
   field hardware.
 
-  **Built: `kmaltgr.ps1`. Half answered, 2026-08-25.**
+  **Built: `kmaltgr.ps1`.** One incidental result from the injected `-Arms` pass
+  worth keeping on its own: **injection does trigger the layout's AltGr
+  synthesis.** It was not obvious it would — the synthesis is a layout behaviour,
+  not an application one — but it does, and `scan=0x21D` identifies the fake
+  positively. That is what made `-Arms` usable as a proxy at all.
 
-  Injected RAlt, all three arms (`-Arms`):
+  **PHYSICAL TEST DONE ON ALL THREE ARMS OF THIS MACHINE, 2026-08-25.**
+  Written up in `MODIFIERS.md` §3d-measured. **The answer is NO.**
 
-  | arm | synthetic Ctrl? | side | extended? |
-  |---|---|---|---|
-  | US | none | — | — |
-  | MSKLC | **yes**, `scan=0x21D` | **LEFT** | **no** |
-  | Keyman | **none at all** | — | — |
+  | arm | input | synthetic Ctrl? | side | extended? | n |
+  |---|---|---|---|---|---|
+  | Keyman TIP | **physical** | **none at all** | — | — | 20 presses |
+  | MSKLC (`0x0436`) | **physical** | **yes**, `scan=0x21D` | **LEFT** | **no** | 22 presses |
+  | MSKLC | injected | yes, `scan=0x21D` | LEFT | no | `-Arms` |
+  | US | injected | none | — | — | `-Arms` |
 
-  So on this machine the AltGr path seeds `LCTRL`, non-extended — the standard
-  behaviour — and on the Keyman arm it does not fire at all, because the TIP
-  handles RAlt itself rather than relying on the layout's AltGr.
+  **MSKLC is the arm that decides it**, being the only one whose layout sets
+  `KLLF_ALTGR`. All 22 physical presses paired with a non-extended LEFT Ctrl,
+  14.5–17.1 ms ahead of the RAlt, and 44/44 Ctrl events carried `scan=0x21D` —
+  Windows' own marker for the fake, so this is positive identification rather
+  than a nearby Ctrl coincidence. Analysis 3: no E0-prefixed Ctrl from any source.
+  The physical result is identical to the injected one, which retroactively
+  justifies `-Arms` as a cheap proxy on this path.
 
-  Two incidental results worth keeping:
-  - **Injection does trigger the layout's AltGr synthesis.** It was not obvious
-    it would; it does. `scan=0x21D` is Windows' own marker for the fake Ctrl, so
-    this is positive identification rather than a nearby Ctrl coincidence.
-  - An `LCTRL` seed is **still a stuck Ctrl** — `LCTRL` latches 7/7 (s2b). It is
-    merely clearable, because every keyboard has a physical Left Ctrl. The
-    severity escalation this item is really about needs the *extended* variant.
+  **Keyman arm produced no Ctrl at all** — not extended, not non-extended. The
+  synthesis belongs to the *layout* (`KBDTABLES` with `KLLF_ALTGR`) and the TIP
+  sits on a US base layout that does not set it, so there is nothing to observe.
+  Stronger than "non-extended, therefore merely clearable".
 
-  **PHYSICAL TEST — Keyman arm done, 2026-08-25. Written up in `MODIFIERS.md`
-  §3d-measured.** `-Watch 45` with the Keyman TIP focused (`HKL=0x04092000`), 20
-  physical press/release cycles of the right-hand Alt, 128 events:
+  Two incidental results, both kept in `MODIFIERS.md`:
+  - **The serializer only engages on a Keyman keyboard.** Keyman arm doubled every
+    keystroke with a `KM-SERIALIZED` replay; MSKLC arm produced zero across 102
+    events. Must be held alongside the separately-measured "wedge is charged while
+    a non-Keyman keyboard is active" (3/3) — both true, not in conflict, but
+    "Keyman is inert on other layouts" is the wrong conclusion to draw.
+  - **This machine has no physical Right Ctrl key** (confirmed by the user
+    2026-08-25; the seven captured Ctrl taps were all `LCTRL scan=0x1D`). So the
+    dev machine is a member of the §3 hardware class, and §3b's "the workaround is
+    unavailable" is a direct observation here, not an extrapolation.
 
-  | arm | input | synthetic Ctrl? | side | extended? |
-  |---|---|---|---|---|
-  | Keyman | **physical** | **none at all** | — | — |
-  | MSKLC | injected | yes, `scan=0x21D` | LEFT | no |
-  | US | injected | none | — | — |
+  **STILL OPEN — one thing, and it is the only thing that decides severity:**
+  **affected field hardware.** A vendor Fn-layer driver emitting `E0 1D` on a
+  laptop with no Right Ctrl key is where an extended seed would come from, and
+  nothing measurable on this machine touches it. Everything local is now done.
 
-  Zero Ctrl events of any kind, no `scan=0x21D`, and the tool's Analysis 3
-  confirmed no E0-prefixed Ctrl from any source. Physicality is not in doubt:
-  each press arrives as a bare `EXT|ALTDOWN` event followed ~16 ms later by the
-  serializer's `EXT|INJ|ALTDOWN KM-SERIALIZED` replay.
-
-  The reason is structural, and it matches the injected Keyman-arm result rather
-  than merely failing to contradict it: the AltGr→Ctrl synthesis belongs to the
-  *layout* (`KBDTABLES` with `KLLF_ALTGR`), and the Keyman TIP sits on a US base
-  layout that does not set it. **On this arm AltGr seeds neither Ctrl slot** —
-  stronger than the "LCTRL, therefore merely clearable" outcome expected.
-
-  **STILL OPEN — two things, and the second is the one that decides severity:**
-  1. **Physical AltGr on the MSKLC arm.** That layout *does* set `KLLF_ALTGR` and
-     the synthesis demonstrably fires there, but so far only under injection.
-     Same command, Win+Space to langid `0x0436` first. Two attempts on 2026-08-25
-     captured zero events because nobody was at the keyboard during the window.
-  2. **Affected field hardware.** I1's actual question. A vendor Fn-layer driver
-     emitting `E0 1D` on a laptop with no Right Ctrl key is where an extended
-     seed would come from, and nothing measured on this machine touches it.
-
-  Incidental gap worth closing while someone is at the keyboard: **no physical
-  Right Ctrl event has ever been captured**, so it is still unknown whether this
-  machine has that key at all. `MODIFIERS.md` §3b's "the user cannot clear it"
-  claim turns on exactly that.
+  **Deliberately NOT doing:** the US arm physically (not an AltGr layout, not a
+  configuration any Cameroon user runs, injected `-Arms` already shows no
+  synthesis); and a physical Right Ctrl via external keyboard, because
+  `kmmods.ps1` injects with `dwExtraInfo = 0` and a real `scan=0x1D`, so the
+  filter at `k32_lowlevelkeyboardhook.cpp:233` cannot distinguish it from
+  hardware and `LLKHF_INJECTED` is never consulted — a positive control on a path
+  with no branch in it.
 
 - [ ] **I5 — Does Cache A exist in the 64-bit engine?**
   `serialkeyeventserver.cpp` is wrapped `#ifndef _WIN64` (`:7` / `:595`), so the

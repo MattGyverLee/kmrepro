@@ -288,7 +288,11 @@ function Get-FocusHkl {
   if ($h -eq [IntPtr]::Zero) { return $null }
   $p = 0
   $tid = [Ka]::GetWindowThreadProcessId($h, [ref]$p)
-  $hkl = ([Ka]::GetKeyboardLayout($tid).ToInt64()) -band 0xFFFFFFFF   # mask: IntPtr sign-extends
+  # Mask off the sign extension. The `L` suffix is NOT optional: PowerShell parses
+  # the literal 0xFFFFFFFF as Int32 -1, so `-band 0xFFFFFFFF` is an identity op and
+  # silently does nothing. Only shows up on layouts whose HKL is negative - the US
+  # arm (0x04090409) printed correctly for weeks while MSKLC printed 16 hex digits.
+  $hkl = ([Ka]::GetKeyboardLayout($tid).ToInt64()) -band 0xFFFFFFFFL
   $lang = $hkl -band 0xFFFF; $high = ($hkl -shr 16) -band 0xFFFF
   $arm = 'unknown-0x{0:X4}' -f $lang
   if ($lang -eq 0x0409 -and $high -eq 0x0409) { $arm = 'US' }

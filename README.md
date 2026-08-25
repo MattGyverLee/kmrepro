@@ -58,7 +58,9 @@ Two consequences that took the longest to establish:
 | A stuck **letter or number** is not this bug | **proven from code.** `do_keybd_event` has four call sites, all emitting `modifiers[6]` or the prefix VK. `MODIFIERS.md` §2a |
 | …but a stuck letter *is* reachable by a **different** defect | **proven from code, unmeasured.** Dropped `QIT_VKEYUP` at the queue-full boundary — `kmprocess.cpp:181-182` ignores both `QueueAction` return values. Narrow reachability. `TODO.md` I10 |
 | A stuck **prefix VK** is reachable by a third defect | **proven from code, unmeasured.** `PostDummyKeyEvent` uses two non-atomic `keybd_event` calls. Invisible to every text oracle; only `GetAsyncKeyState` sees it. `TODO.md` I11 |
-| AltGr is the seed for a stuck **Right** Ctrl | **NO, on this machine — measured 2026-08-25.** Physical AltGr on the Keyman arm emits no Ctrl at all (the TIP's US base layout lacks `KLLF_ALTGR`); the MSKLC arm's synthetic Ctrl is `LCTRL`, non-extended. Physical MSKLC arm and all field hardware still owed. `MODIFIERS.md` §3d-measured, `TODO.md` I1 |
+| AltGr is the seed for a stuck **Right** Ctrl | **NO, on this machine — MEASURED 2026-08-25, physically, on all three arms.** MSKLC is the only arm setting `KLLF_ALTGR`, and all 22 physical AltGr presses paired with a **non-extended LEFT Ctrl** (44/44 carrying Windows' `scan=0x21D` fake-Ctrl marker). The Keyman arm emits no Ctrl at all — its US base layout lacks the flag. Affected field hardware is now the only gap. `MODIFIERS.md` §3d-measured, `TODO.md` I1 |
+| The dev machine is itself the no-Right-Ctrl hardware class | **confirmed 2026-08-25.** It has no physical Right Ctrl key, so §3b's "the workaround is unavailable to the user" is a direct observation here rather than an extrapolation. `MODIFIERS.md` §3b |
+| Keyman's serializer replays keystrokes on non-Keyman layouts | **NO — measured 2026-08-25.** The Keyman arm doubled every keystroke with a `KM-SERIALIZED` replay; the MSKLC arm produced zero across 102 events. Holds alongside the charge-test row above — charging the wedge is not the same act as replaying a key, so do not read this as "Keyman is inert on other layouts". `MODIFIERS.md` §3d-measured |
 | **What stalls the thread in the field** | **NOT established.** The repro induces the stall with a debug-only command. CPU load alone did not reproduce it. This is the main open gap — `TODO.md` I3 |
 | The original watchdog hypothesis | **not supported.** See "Historical record" below |
 
@@ -242,6 +244,7 @@ git add -f archive/reports-control/*.png
 ```
 
 `logs-treatment/` holds the raw run logs from the treatment build and is tracked.
-`altgr-physical-keyman-arm.txt` / `.csv` is the I1 physical capture — 20 real
-AltGr presses on the Keyman arm, kept because a null result is only citable with
-its raw evidence attached.
+`altgr-physical-keyman-arm.txt` / `.csv` and `altgr-physical-msklc-arm.txt` /
+`.csv` are the two I1 physical captures — 20 and 22 real AltGr presses
+respectively. Kept because a negative result is only citable with its raw
+evidence attached, and the MSKLC one is the actual answer to I1.
