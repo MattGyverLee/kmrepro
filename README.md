@@ -58,6 +58,7 @@ Two consequences that took the longest to establish:
 | A stuck **letter or number** is not this bug | **proven from code.** `do_keybd_event` has four call sites, all emitting `modifiers[6]` or the prefix VK. `MODIFIERS.md` §2a |
 | …but a stuck letter *is* reachable by a **different** defect | **proven from code, unmeasured.** Dropped `QIT_VKEYUP` at the queue-full boundary — `kmprocess.cpp:181-182` ignores both `QueueAction` return values. Narrow reachability. `TODO.md` I10 |
 | A stuck **prefix VK** is reachable by a third defect | **proven from code, unmeasured.** `PostDummyKeyEvent` uses two non-atomic `keybd_event` calls. Invisible to every text oracle; only `GetAsyncKeyState` sees it. `TODO.md` I11 |
+| AltGr is the seed for a stuck **Right** Ctrl | **NO, on this machine — measured 2026-08-25.** Physical AltGr on the Keyman arm emits no Ctrl at all (the TIP's US base layout lacks `KLLF_ALTGR`); the MSKLC arm's synthetic Ctrl is `LCTRL`, non-extended. Physical MSKLC arm and all field hardware still owed. `MODIFIERS.md` §3d-measured, `TODO.md` I1 |
 | **What stalls the thread in the field** | **NOT established.** The repro induces the stall with a debug-only command. CPU load alone did not reproduce it. This is the main open gap — `TODO.md` I3 |
 | The original watchdog hypothesis | **not supported.** See "Historical record" below |
 
@@ -241,3 +242,6 @@ git add -f archive/reports-control/*.png
 ```
 
 `logs-treatment/` holds the raw run logs from the treatment build and is tracked.
+`altgr-physical-keyman-arm.txt` / `.csv` is the I1 physical capture — 20 real
+AltGr presses on the Keyman arm, kept because a null result is only citable with
+its raw evidence attached.

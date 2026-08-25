@@ -1,0 +1,285 @@
+﻿09:37:27.660 ================= kmaltgr: low-level keyboard logger (TODO I1) =================
+09:37:27.667 [PRIVACY] a global keyboard hook is now active. EVERY keystroke on this machine
+09:37:27.668           is being logged while this runs. Do not type passwords.
+09:37:27.669 log = C:\Users\thoua\AppData\Local\Temp\kmrepro\altgr-20260825-093727.txt
+09:37:27.670 
+09:37:27.673 hook installed.
+09:37:27.706 focus keyboard: Keyman (HKL=0x04092000 langid=0x2000)
+09:37:27.708 
+09:37:27.712 ---- passive watch, 45s ----
+09:37:32.728      45s left  (0 events)
+09:37:37.742      40s left  (0 events)
+09:37:42.756      35s left  (0 events)
+09:37:47.769      30s left  (0 events)
+09:37:52.780      25s left  (0 events)
+09:37:57.785      20s left  (0 events)
+09:38:02.787      15s left  (0 events)
+09:38:07.799      10s left  (46 events)
+09:38:12.809       5s left  (122 events)
+09:38:13.127 
+09:38:13.131 captured 128 key events
+09:38:13.134 
+09:38:13.135 EVENT LOG
+09:38:13.136          ms  dir  vk         scan    flags                extra           phase
+09:38:13.171     35387.1  DN   J          0x24    -                                    watch
+09:38:13.176     35401.6  DN   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.178     35417.0  UP   J          0x24    -                                    watch
+09:38:13.179     35432.9  UP   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.180     35733.8  DN   H          0x23    -                                    watch
+09:38:13.182     35749.9  DN   H          0x23    INJ                  KM-SERIALIZED   watch
+09:38:13.182     35844.0  UP   H          0x23    -                                    watch
+09:38:13.184     35861.1  UP   H          0x23    INJ                  KM-SERIALIZED   watch
+09:38:13.185     36163.0  DN   J          0x24    -                                    watch
+09:38:13.187     36180.1  DN   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.205     36275.5  UP   J          0x24    -                                    watch
+09:38:13.207     36291.1  UP   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.209     36580.7  DN   J          0x24    -                                    watch
+09:38:13.210     36596.3  DN   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.211     36675.8  UP   J          0x24    -                                    watch
+09:38:13.213     36691.3  UP   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.214     37010.3  DN   J          0x24    -                                    watch
+09:38:13.215     37026.4  DN   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.217     37121.0  UP   J          0x24    -                                    watch
+09:38:13.218     37135.9  UP   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.219     37598.5  DN   O          0x18    -                                    watch
+09:38:13.220     37614.4  DN   O          0x18    INJ                  KM-SERIALIZED   watch
+09:38:13.222     37677.9  UP   O          0x18    -                                    watch
+09:38:13.223     37694.3  UP   O          0x18    INJ                  KM-SERIALIZED   watch
+09:38:13.224     37917.0  DN   O          0x18    -                                    watch
+09:38:13.226     37932.1  DN   O          0x18    INJ                  KM-SERIALIZED   watch
+09:38:13.227     37996.0  UP   O          0x18    -                                    watch
+09:38:13.228     38012.8  UP   O          0x18    INJ                  KM-SERIALIZED   watch
+09:38:13.229     38300.4  DN   O          0x18    -                                    watch
+09:38:13.230     38315.4  DN   O          0x18    INJ                  KM-SERIALIZED   watch
+09:38:13.231     38379.7  UP   O          0x18    -                                    watch
+09:38:13.232     38396.1  UP   O          0x18    INJ                  KM-SERIALIZED   watch
+09:38:13.234     38729.5  DN   O          0x18    -                                    watch
+09:38:13.234     38745.9  DN   O          0x18    INJ                  KM-SERIALIZED   watch
+09:38:13.237     38824.2  UP   O          0x18    -                                    watch
+09:38:13.238     38839.8  UP   O          0x18    INJ                  KM-SERIALIZED   watch
+09:38:13.239     39159.7  DN   I          0x17    -                                    watch
+09:38:13.241     39175.3  DN   I          0x17    INJ                  KM-SERIALIZED   watch
+09:38:13.242     39254.5  UP   I          0x17    -                                    watch
+09:38:13.243     39255.7  UP   I          0x17    INJ                  KM-SERIALIZED   watch
+09:38:13.244     39604.3  DN   J          0x24    -                                    watch
+09:38:13.245     39620.8  DN   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.245     39731.2  UP   J          0x24    -                                    watch
+09:38:13.246     39746.9  UP   J          0x24    INJ                  KM-SERIALIZED   watch
+09:38:13.247     40048.6  DN   I          0x17    -                                    watch
+09:38:13.248     40064.2  DN   I          0x17    INJ                  KM-SERIALIZED   watch
+09:38:13.248     40173.4  UP   I          0x17    -                                    watch
+09:38:13.249     40189.1  UP   I          0x17    INJ                  KM-SERIALIZED   watch
+09:38:13.251     41298.9  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.252     41315.0  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.253     41362.0  UP   RALT       0x38    EXT                                  watch
+09:38:13.254     41377.6  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.255     41523.4  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.256     41541.2  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.258     41555.9  UP   RALT       0x38    EXT                                  watch
+09:38:13.259     41572.6  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.260     41714.5  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.261     41730.8  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.262     41760.3  UP   RALT       0x38    EXT                                  watch
+09:38:13.263     41774.9  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.264     41938.0  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.265     41953.4  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.266     41953.5  UP   RALT       0x38    EXT                                  watch
+09:38:13.267     41970.2  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.267     42129.3  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.268     42146.7  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.269     42192.5  UP   RALT       0x38    EXT                                  watch
+09:38:13.270     42208.5  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.271     42336.8  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.272     42352.0  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.273     42383.7  UP   RALT       0x38    EXT                                  watch
+09:38:13.274     42398.2  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.276     42556.4  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.277     42572.2  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.278     42602.6  UP   RALT       0x38    EXT                                  watch
+09:38:13.280     42619.2  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.281     42747.6  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.282     42763.2  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.283     42796.3  UP   RALT       0x38    EXT                                  watch
+09:38:13.284     42810.1  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.285     42950.0  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.287     42965.7  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.288     42997.0  UP   RALT       0x38    EXT                                  watch
+09:38:13.289     43012.9  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.289     43155.3  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.290     43171.9  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.292     43202.7  UP   RALT       0x38    EXT                                  watch
+09:38:13.293     43219.2  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.294     43360.2  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.295     43377.7  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.296     43408.0  UP   RALT       0x38    EXT                                  watch
+09:38:13.297     43424.2  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.298     43564.4  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.299     43582.0  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.300     43626.3  UP   RALT       0x38    EXT                                  watch
+09:38:13.301     43642.8  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.302     43787.3  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.303     43803.9  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.304     43849.7  UP   RALT       0x38    EXT                                  watch
+09:38:13.306     43866.0  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.306     43992.5  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.308     44009.3  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.309     44056.2  UP   RALT       0x38    EXT                                  watch
+09:38:13.309     44072.5  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.310     44218.9  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.312     44234.6  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.313     44282.2  UP   RALT       0x38    EXT                                  watch
+09:38:13.314     44298.4  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.315     44458.1  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.316     44473.5  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.317     44504.9  UP   RALT       0x38    EXT                                  watch
+09:38:13.319     44521.1  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.320     44663.3  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.321     44679.5  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.322     44726.3  UP   RALT       0x38    EXT                                  watch
+09:38:13.323     44742.2  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.325     44867.9  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.326     44883.2  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.328     44915.4  UP   RALT       0x38    EXT                                  watch
+09:38:13.328     44931.9  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   watch
+09:38:13.330     45088.8  DN   RALT       0x38    EXT|ALTDOWN                          watch
+09:38:13.331     45105.1  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   watch
+09:38:13.332     45140.2  UP   RALT       0x38    EXT                                  idle
+09:38:13.333     45152.3  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   idle
+09:38:13.334     45296.1  DN   RALT       0x38    EXT|ALTDOWN                          idle
+09:38:13.335     45312.5  DN   RALT       0x38    EXT|INJ|ALTDOWN      KM-SERIALIZED   idle
+09:38:13.336     45345.3  UP   RALT       0x38    EXT                                  idle
+09:38:13.337     45361.1  UP   RALT       0x38    EXT|INJ              KM-SERIALIZED   idle
+09:38:13.338     * 0x21D = Windows' synthetic AltGr Ctrl;  0xFF = SCAN_FLAG_KEYMAN_KEY_EVENT
+09:38:13.339       KM-SERIALIZED = EXTRAINFO_FLAG_SERIALIZED_USER_KEY_EVENT, the serializer replaying a real key
+09:38:13.340 
+09:38:13.386 =================== ANALYSIS 1: AltGr / Ctrl pairing (I1) ===================
+09:38:13.396   40 Right Alt keydown(s) seen.
+09:38:13.404   RAlt DN at   41298.9 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.408   RAlt DN at   41315.0 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.410   RAlt DN at   41523.4 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.413   RAlt DN at   41541.2 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.414   RAlt DN at   41714.5 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.417   RAlt DN at   41730.8 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.419   RAlt DN at   41938.0 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.420   RAlt DN at   41953.4 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.423   RAlt DN at   42129.3 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.425   RAlt DN at   42146.7 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.427   RAlt DN at   42336.8 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.429   RAlt DN at   42352.0 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.431   RAlt DN at   42556.4 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.434   RAlt DN at   42572.2 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.439   RAlt DN at   42747.6 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.440   RAlt DN at   42763.2 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.443   RAlt DN at   42950.0 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.445   RAlt DN at   42965.7 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.447   RAlt DN at   43155.3 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.449   RAlt DN at   43171.9 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.451   RAlt DN at   43360.2 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.466   RAlt DN at   43377.7 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.468   RAlt DN at   43564.4 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.470   RAlt DN at   43582.0 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.473   RAlt DN at   43787.3 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.475   RAlt DN at   43803.9 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.477   RAlt DN at   43992.5 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.480   RAlt DN at   44009.3 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.482   RAlt DN at   44218.9 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.485   RAlt DN at   44234.6 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.488   RAlt DN at   44458.1 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.490   RAlt DN at   44473.5 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.491   RAlt DN at   44663.3 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.493   RAlt DN at   44679.5 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.495   RAlt DN at   44867.9 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.497   RAlt DN at   44883.2 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.498   RAlt DN at   45088.8 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.500   RAlt DN at   45105.1 ms [watch] - NO Ctrl within the preceding 50 ms
+09:38:13.501   RAlt DN at   45296.1 ms [idle] - NO Ctrl within the preceding 50 ms
+09:38:13.503   RAlt DN at   45312.5 ms [idle] - NO Ctrl within the preceding 50 ms
+09:38:13.504 
+09:38:13.505   [NO PAIRING OBSERVED] no Ctrl accompanied any Right Alt keydown in this run.
+09:38:13.506   If these were INJECTED RAlt events, that is expected-ish and answers nothing:
+09:38:13.506   the AltGr->Ctrl synthesis is a layout behaviour and may not fire for
+09:38:13.508   synthesized input. Re-run with -Manual and a real finger on AltGr before
+09:38:13.508   concluding anything about I1.
+09:38:13.510 
+09:38:13.510 ============ ANALYSIS 2: Keyman-injected events (scan 0xFF) ============
+09:38:13.514   None seen. Keyman emits scanCode 0xFF (SCAN_FLAG_KEYMAN_KEY_EVENT, keyman64.h:132)
+09:38:13.516   on everything it synthesizes, so either Keyman injected nothing or its keyboard
+09:38:13.517   was not active. Type through a Keyman keyboard while this runs to capture them.
+09:38:13.518 
+09:38:13.522   64 event(s) carry EXTRAINFO_FLAG_SERIALIZED_USER_KEY_EVENT (0x4B4D0000):
+09:38:13.526       35401.6 ms  DN   J          scan=0x24 INJ
+09:38:13.526       35432.9 ms  UP   J          scan=0x24 INJ
+09:38:13.528       35749.9 ms  DN   H          scan=0x23 INJ
+09:38:13.529       35861.1 ms  UP   H          scan=0x23 INJ
+09:38:13.530       36180.1 ms  DN   J          scan=0x24 INJ
+09:38:13.531       36291.1 ms  UP   J          scan=0x24 INJ
+09:38:13.532       36596.3 ms  DN   J          scan=0x24 INJ
+09:38:13.533       36691.3 ms  UP   J          scan=0x24 INJ
+09:38:13.534       37026.4 ms  DN   J          scan=0x24 INJ
+09:38:13.535       37135.9 ms  UP   J          scan=0x24 INJ
+09:38:13.536       37614.4 ms  DN   O          scan=0x18 INJ
+09:38:13.537       37694.3 ms  UP   O          scan=0x18 INJ
+09:38:13.537       37932.1 ms  DN   O          scan=0x18 INJ
+09:38:13.538       38012.8 ms  UP   O          scan=0x18 INJ
+09:38:13.539       38315.4 ms  DN   O          scan=0x18 INJ
+09:38:13.540       38396.1 ms  UP   O          scan=0x18 INJ
+09:38:13.541       38745.9 ms  DN   O          scan=0x18 INJ
+09:38:13.542       38839.8 ms  UP   O          scan=0x18 INJ
+09:38:13.543       39175.3 ms  DN   I          scan=0x17 INJ
+09:38:13.545       39255.7 ms  UP   I          scan=0x17 INJ
+09:38:13.546       39620.8 ms  DN   J          scan=0x24 INJ
+09:38:13.547       39746.9 ms  UP   J          scan=0x24 INJ
+09:38:13.548       40064.2 ms  DN   I          scan=0x17 INJ
+09:38:13.550       40189.1 ms  UP   I          scan=0x17 INJ
+09:38:13.551       41315.0 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.552       41377.6 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.553       41541.2 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.553       41572.6 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.555       41730.8 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.556       41774.9 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.558       41953.4 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.559       41970.2 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.560       42146.7 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.561       42208.5 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.562       42352.0 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.563       42398.2 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.563       42572.2 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.564       42619.2 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.565       42763.2 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.566       42810.1 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.567       42965.7 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.568       43012.9 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.568       43171.9 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.569       43219.2 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.570       43377.7 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.571       43424.2 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.571       43582.0 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.572       43642.8 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.574       43803.9 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.575       43866.0 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.575       44009.3 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.577       44072.5 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.578       44234.6 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.579       44298.4 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.580       44473.5 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.581       44521.1 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.581       44679.5 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.582       44742.2 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.583       44883.2 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.585       44931.9 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.585       45105.1 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.587       45152.3 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.587       45312.5 ms  DN   RALT       scan=0x38 EXT|INJ|ALTDOWN
+09:38:13.588       45361.1 ms  UP   RALT       scan=0x38 EXT|INJ
+09:38:13.589   That is serialkeyeventserver.cpp REPLAYING a real user keystroke - the serializer
+09:38:13.590   swallowing the original and re-emitting it. Note these carry the ORIGINAL scan
+09:38:13.591   code, not 0xFF: replayed user keys and Keyman-synthesized keys are different
+09:38:13.592   paths with different markers, and only the latter is keybd_shift_reset.
+09:38:13.593 
+09:38:13.593 ============ ANALYSIS 3: every extended Ctrl seen, any source ============
+09:38:13.595   None. No E0-prefixed Ctrl reached the hook from any source during this run.
+09:38:13.597 
+09:38:13.599   csv : C:\Users\thoua\AppData\Local\Temp\kmrepro\altgr-20260825-093727.csv
+09:38:13.600   log : C:\Users\thoua\AppData\Local\Temp\kmrepro\altgr-20260825-093727.txt
+09:38:13.601 ===============================================================================
+09:38:13.603 hook removed.

@@ -507,7 +507,55 @@ to least likely, all testable:
    it is every keystroke the user types.
 
 Test for (3): log `KBDLLHOOKSTRUCT.vkCode` / `scanCode` / `flags & LLKHF_EXTENDED`
-for the Ctrl event that accompanies AltGr, on the affected hardware. Not yet done.
+for the Ctrl event that accompanies AltGr, on the affected hardware. Partly done
+— see §3d-measured immediately below.
+
+### 3d-measured. Physical AltGr on the Keyman arm emits NO Ctrl at all — 2026-08-25
+
+`kmaltgr.ps1 -Watch 45` with the **Keyman TIP** as the focus keyboard
+(`HKL=0x04092000`, langid `0x2000`), 20 physical press/release cycles of the
+right-hand Alt key, 128 events captured.
+
+**Result: not one Ctrl event of any kind.** Not an extended one, not a
+non-extended one — none. No `scanCode 0x21D` anywhere in the capture, and the
+tool's Analysis 3 reported *"No E0-prefixed Ctrl reached the hook from any
+source during this run."*
+
+These were real fingers, not injection. Every press arrives as a pair — the
+physical event, then Keyman's serializer replaying it ~16 ms later:
+
+```
+41298.9  DN  RALT  scan=0x38  EXT|ALTDOWN                       <- physical
+41315.0  DN  RALT  scan=0x38  EXT|INJ|ALTDOWN  KM-SERIALIZED    <- serializer replay
+41362.0  UP  RALT  scan=0x38  EXT
+41377.6  UP  RALT  scan=0x38  EXT|INJ          KM-SERIALIZED
+```
+
+**Why there is nothing to see:** the AltGr→Ctrl synthesis is a property of the
+*layout* — a `KBDTABLES` carrying `KLLF_ALTGR`. The Keyman TIP sits on a US base
+layout, which does not set that flag, so Windows performs no synthesis and the
+right-hand Alt key is simply `VK_RMENU`. On this arm **AltGr seeds neither Ctrl
+slot**, so it cannot be the §3d seed here at all — which is a stronger result
+than the "non-extended, therefore only LCTRL" outcome the script was written to
+expect.
+
+What this does **not** settle, and must not be written up as if it did:
+
+1. **The MSKLC arm, physically.** That layout *does* set `KLLF_ALTGR`, and there
+   the synthesis demonstrably fires — but so far only measured under
+   **injection**: `LCTRL scan=0x21D INJ|ALTDOWN`, **non-extended**, 1.4 ms ahead
+   of the injected RAlt (2026-08-25, recorded in `kmaltgr.ps1`'s header). A
+   physical reading on that arm is still owed.
+2. **Field hardware.** I1 asks about the *affected* machines. A vendor Fn-layer
+   driver synthesizing `E0 1D` on a laptop with no Right Ctrl key is §3d item 2,
+   not item 3, and nothing here touches it.
+3. **AltGr + letter combinations.** Only bare AltGr taps were pressed. A bare tap
+   is sufficient to trigger the synthesis on a `KLLF_ALTGR` layout, so this is
+   not a gap for item 3 — but the combination path is unexercised.
+
+Also unresolved, and noted here because §3b depends on it: **no physical Right
+Ctrl event was captured**, so whether this machine even has that key is still
+unknown. §3b's claim that the user cannot clear the latch turns on exactly that.
 
 ---
 
@@ -647,7 +695,10 @@ order:
 3. **The AltGr-to-Ctrl extended-bit question** (§3d item 3). An LL-hook logger
    recording `vkCode` / `scanCode` / `LLKHF_EXTENDED` for the synthetic Ctrl that
    accompanies AltGr. If it is ever extended, the seed is every keystroke and the
-   severity of this whole bug goes up sharply.
+   severity of this whole bug goes up sharply. **Answered NO on this machine**
+   (§3d-measured, 2026-08-25): the Keyman arm synthesizes no Ctrl whatsoever, and
+   the MSKLC arm's synthetic Ctrl is `LCTRL`, non-extended. Still owed: a physical
+   reading on the MSKLC arm, and anything at all from field hardware.
 
 Also worth noting for the oracle design: the existing case-sensitivity trap
 (`-ceq` / `-cne`) is a **Shift**-specific artifact. A stuck Ctrl produces no case
