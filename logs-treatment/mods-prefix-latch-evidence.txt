@@ -1,0 +1,183 @@
+﻿14:17:25.386 ============ kmmods: which modifiers can this bug actually stick? ============
+14:17:25.395 target=notepad hwnd=0x80F5E  keyman ctrl=0x2035A  keyboard=Keyman  load=0  repeat=2
+14:17:25.399 probe alphabet = 'jkq' (j/k/q: bound to nothing under Ctrl or Alt in Notepad)
+14:17:25.400 log = C:\Users\thoua\AppData\Local\Temp\kmrepro\mods-20260824-141724.txt
+14:17:25.401 
+14:17:25.402 KEY CATALOG (Ext and Scan are load-bearing - HAZARDS.md gotcha 1)
+14:17:25.402   id        vk    ext  scan           class     cacheA  hazard  label
+14:17:25.410   LSHIFT    0xA0  no   0x2A           modifier  YES     none    Left Shift <- target
+14:17:25.411   RSHIFT    0xA1  no   0x36           modifier  YES     none    Right Shift (0x36, NOT extended) <- target
+14:17:25.412   LCTRL     0xA2  no   0x1D           modifier  YES     accel   Left Ctrl <- target
+14:17:25.413   RCTRL     0xA3  yes  0x1D           modifier  YES     accel   Right Ctrl (E0 1D) <- target
+14:17:25.414   LALT      0xA4  no   0x38           modifier  YES     menu    Left Alt <- target
+14:17:25.415   RALT      0xA5  yes  0x38           modifier  YES     menu    Right Alt / AltGr (E0 38) <- target
+14:17:25.415   INSERT    0x2D  yes  0x52           other     no      none    Insert (E0 52 - unextended is numpad-0) <- target
+14:17:25.416   LWIN      0x5B  yes  0x5B           other     no      shell   Left Windows
+14:17:25.417   RWIN      0x5C  yes  0x5C           other     no      shell   Right Windows
+14:17:25.418   APPS      0x5D  yes  0x5D           other     no      menu    Apps / context menu
+14:17:25.419   NUMLOCK   0x90  yes  0x45           lock      no      none    Num Lock <- target
+14:17:25.419   CAPSLOCK  0x14  no   0x3A           lock      no      none    Caps Lock <- target
+14:17:25.420   SCROLL    0x91  no   0x46           lock      no      none    Scroll Lock <- target
+14:17:25.421   KEY_A     0x41  no   0x1E           ordinary  no      none    letter A
+14:17:25.421   KEY_Z     0x5A  no   0x2C           ordinary  no      none    letter Z
+14:17:25.422   KEY_1     0x31  no   0x02           ordinary  no      none    digit 1
+14:17:25.423   SPACE     0x20  no   0x39           ordinary  no      menu    Space
+14:17:25.423 
+14:17:25.424   ZAPVK     0x0E  watch-only, never injected by this script
+14:17:25.426             source: default _VK_PREFIX_DEFAULT (aiTIP.h:36) - no registry override
+14:17:25.427             0x0E is a reserved VK that no application maps, so a latch here is invisible
+14:17:25.428             in any text probe but fully visible to GetAsyncKeyState. That is the only
+14:17:25.428             way to catch a lost KEYUP from PostDummyKeyEvent (keyman32.cpp:923-926,
+14:17:25.429             two separate keybd_event calls, not an atomic SendInput batch).
+14:17:25.429 
+14:17:25.444 baseline state: held=none  aggregates=none  caps=0 num=0 scroll=0
+14:17:25.446 
+14:17:25.482 keyboard confirmed: Keyman (HKL=0x04092000 langid=0x2000 tid=9604 cls=RichEditD2DPT)
+14:17:26.641 baseline text probe: LOWER      U+006A U+006B U+0071
+14:17:26.645 modifiers  = LSHIFT, RSHIFT, LCTRL, RCTRL, LALT, RALT, INSERT, NUMLOCK, CAPSLOCK, SCROLL
+14:17:26.646 candidates = I
+14:17:26.647 
+14:17:26.650 ---------------- MODIFIER: LSHIFT (Left Shift) ----------------
+14:17:26.651   code predicts: IN Cache A - CAN be phantom-pressed
+14:17:31.313   LSHIFT   p1 [I] PHANTOM:LSHIFT           held=LSHIFT                 text=UPPER  U+004A U+004B U+0051   hyg=none tog=n/a
+14:17:31.315            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:17:32.318            recovered by the explicit KEYUP sweep alone
+14:17:42.149   LSHIFT   p2 [I] PHANTOM:LSHIFT           held=LSHIFT                 text=UPPER  U+004A U+004B U+0051   hyg=none tog=n/a
+14:17:42.169            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:17:43.107            recovered by the explicit KEYUP sweep alone
+14:17:48.322 
+14:17:48.323 ---------------- MODIFIER: RSHIFT (Right Shift (0x36, NOT extended)) ----------------
+14:17:48.325   code predicts: IN Cache A - CAN be phantom-pressed
+14:17:52.922   RSHIFT   p1 [I] PHANTOM:LSHIFT+RSHIFT    held=LSHIFT,RSHIFT          text=UPPER  U+004A U+004B U+0051   hyg=none tog=n/a
+14:17:52.923            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:17:53.912            recovered by the explicit KEYUP sweep alone
+14:18:03.790   RSHIFT   p2 [I] PHANTOM:LSHIFT+RSHIFT    held=LSHIFT,RSHIFT          text=UPPER  U+004A U+004B U+0051   hyg=none tog=n/a
+14:18:03.791            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:18:04.765            recovered by the explicit KEYUP sweep alone
+14:18:09.975 
+14:18:09.976 ---------------- MODIFIER: LCTRL (Left Ctrl) ----------------
+14:18:09.977   code predicts: IN Cache A - CAN be phantom-pressed
+14:18:14.594   LCTRL    p1 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL held=LSHIFT,RSHIFT,LCTRL    text=OTHER  U+004A U+006B U+0051   hyg=none tog=n/a
+14:18:14.595            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:18:15.526            recovered by the explicit KEYUP sweep alone
+14:18:25.373   LCTRL    p2 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL held=LSHIFT,RSHIFT,LCTRL    text=OTHER  U+004A U+006B U+0051   hyg=none tog=n/a
+14:18:25.374            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:18:26.378            recovered by the explicit KEYUP sweep alone
+14:18:31.585 
+14:18:31.587 ---------------- MODIFIER: RCTRL (Right Ctrl (E0 1D)) ----------------
+14:18:31.589   code predicts: IN Cache A - CAN be phantom-pressed
+14:18:36.189   RCTRL    p1 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL held=LSHIFT,RSHIFT,LCTRL,RCTRL text=OTHER  U+004A U+006B U+0051   hyg=none tog=n/a
+14:18:36.190            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:18:37.163            recovered by the explicit KEYUP sweep alone
+14:18:46.993   RCTRL    p2 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL held=LSHIFT,RSHIFT,LCTRL,RCTRL text=OTHER  U+004A U+006B U+0051   hyg=none tog=n/a
+14:18:46.994            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:18:47.985            recovered by the explicit KEYUP sweep alone
+14:18:53.195 
+14:18:53.197 ---------------- MODIFIER: LALT (Left Alt) ----------------
+14:18:53.198   code predicts: IN Cache A - CAN be phantom-pressed
+14:18:58.245   LALT     p1 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT text=EMPTY  <empty>                hyg=esc x2 tog=n/a
+14:18:58.247            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:18:59.244            recovered by the explicit KEYUP sweep alone
+14:19:09.514   LALT     p2 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT text=EMPTY  <empty>                hyg=esc x2 tog=n/a
+14:19:09.514            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:19:10.448            recovered by the explicit KEYUP sweep alone
+14:19:15.660 
+14:19:15.661 ---------------- MODIFIER: RALT (Right Alt / AltGr (E0 38)) ----------------
+14:19:15.662   code predicts: IN Cache A - CAN be phantom-pressed
+14:19:20.739   RALT     p1 [I] PREFIX-LATCH:ZAPVK       held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT+ZAPVK text=EMPTY  <empty>                hyg=esc x2 tog=n/a
+14:19:20.741            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:19:21.729            recovered by the explicit KEYUP sweep alone
+14:19:31.943   RALT     p2 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=esc x2 tog=n/a
+14:19:31.945            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:19:32.953            recovered by the explicit KEYUP sweep alone
+14:19:38.170 
+14:19:38.172 ---------------- MODIFIER: INSERT (Insert (E0 52 - unextended is numpad-0)) ----------------
+14:19:38.173   code predicts: NOT in Cache A - CANNOT be phantom-pressed (negative control)
+14:19:42.853   INSERT   p1 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=none tog=n/a
+14:19:42.854            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:19:43.835            recovered by the explicit KEYUP sweep alone
+14:19:53.738   INSERT   p2 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=none tog=n/a
+14:19:53.740            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:19:54.750            recovered by the explicit KEYUP sweep alone
+14:19:59.965 
+14:19:59.966 ---------------- MODIFIER: NUMLOCK (Num Lock) ----------------
+14:19:59.967   code predicts: NOT in Cache A - CANNOT be phantom-pressed (negative control)
+14:20:05.116   NUMLOCK  p1 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=none tog=flipped 0->1, restored
+14:20:05.117            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:20:06.111            recovered by the explicit KEYUP sweep alone
+14:20:16.470   NUMLOCK  p2 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=none tog=flipped 0->1, restored
+14:20:16.472            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:20:17.467            recovered by the explicit KEYUP sweep alone
+14:20:22.683 
+14:20:22.685 ---------------- MODIFIER: CAPSLOCK (Caps Lock) ----------------
+14:20:22.686   code predicts: NOT in Cache A - CANNOT be phantom-pressed (negative control)
+14:20:27.829   CAPSLOCK p1 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=none tog=flipped 0->1, restored
+14:20:27.831            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:20:28.799            recovered by the explicit KEYUP sweep alone
+14:20:39.135   CAPSLOCK p2 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=none tog=flipped 0->1, restored
+14:20:39.136            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:20:40.145            recovered by the explicit KEYUP sweep alone
+14:20:45.348 
+14:20:45.349 ---------------- MODIFIER: SCROLL (Scroll Lock) ----------------
+14:20:45.350   code predicts: NOT in Cache A - CANNOT be phantom-pressed (negative control)
+14:20:50.443   SCROLL   p1 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=none tog=flipped 0->1, restored
+14:20:50.444            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:20:51.402            recovered by the explicit KEYUP sweep alone
+14:21:01.736   SCROLL   p2 [I] PHANTOM:LSHIFT+RSHIFT+LCTRL+RCTRL+LALT+RALT held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT text=EMPTY  <empty>                hyg=none tog=flipped 0->1, restored
+14:21:01.737            the latch appeared only AFTER the poke keystroke - Keyman injected it on the batch.
+14:21:02.705            recovered by the explicit KEYUP sweep alone
+14:21:07.922 
+14:21:07.924 =========================== SUMMARY ===========================
+14:21:07.930 Trials: 20 recorded, 20 valid, 0 discarded
+14:21:07.931 
+14:21:07.932 Per modifier. "predicted" is what MODIFIERS.md section 2 says from reading the
+14:21:07.933 code; everything to its right is what this run measured.
+14:21:07.933   modifier  predicted   latched    cacheB     swallowed  n
+14:21:07.940   LSHIFT    CAN latch   2/2        0/2        0/2        2
+14:21:07.942   RSHIFT    CAN latch   2/2        0/2        0/2        2
+14:21:07.944   LCTRL     CAN latch   2/2        0/2        0/2        2
+14:21:07.945   RCTRL     CAN latch   2/2        0/2        0/2        2
+14:21:07.947   LALT      CAN latch   2/2        0/2        0/2        2
+14:21:07.948   RALT      CAN latch   2/2        0/2        0/2        2
+14:21:07.949   INSERT    immune      2/2        0/2        0/2        2
+14:21:07.951   NUMLOCK   immune      2/2        0/2        0/2        2
+14:21:07.952   CAPSLOCK  immune      2/2        0/2        0/2        2
+14:21:07.955   SCROLL    immune      2/2        0/2        0/2        2
+14:21:07.957 
+14:21:07.959 Per modifier x candidate (latch rate, valid trials only):
+14:21:07.960   modifier I       
+14:21:07.962   LSHIFT   2/2     
+14:21:07.963   RSHIFT   2/2     
+14:21:07.966   LCTRL    2/2     
+14:21:07.968   RCTRL    2/2     
+14:21:07.969   LALT     2/2     
+14:21:07.970   RALT     2/2     
+14:21:07.972   INSERT   2/2     
+14:21:07.972   NUMLOCK  2/2     
+14:21:07.973   CAPSLOCK 2/2     
+14:21:07.976   SCROLL   2/2     
+14:21:07.976 
+14:21:07.977   I = hold, freeze CONFIRMED ACTIVE, release into the stall (primary)
+14:21:07.978 
+14:21:07.979 VERDICT
+14:21:07.987   [PREFIX VK LATCHED] 1 trial(s). VK 0x0E reads held and this script never injects it.
+14:21:07.988       Only Keyman emits that key. keybd_sendprefix() writes its down+up into one
+14:21:07.989       atomic SendInput batch and cannot split, but PostDummyKeyEvent()
+14:21:07.990       (keyman32.cpp:923-926) uses two separate legacy keybd_event() calls with no
+14:21:07.990       atomicity at all. A stall between those two lines loses the KEYUP.
+14:21:07.992       This is a THIRD mechanism, distinct from both Cache A and Cache B.
+14:21:07.994 
+14:21:07.995   [SCOPE CONFIRMED] latched: LSHIFT, RSHIFT, LCTRL, RCTRL, LALT, RALT
+14:21:07.996                     negative controls, clean throughout: INSERT, NUMLOCK, CAPSLOCK, SCROLL
+14:21:07.996                     Same stimulus, same keyboard, same session - and they never latch.
+14:21:07.998                     That is MODIFIERS.md section 2 measured rather than inferred.
+14:21:07.999 
+14:21:08.000   [NEW] LCTRL and RCTRL latched. Ctrl had never been exercised on either side (TODO H1) and it is
+14:21:08.001         the one modifier with no self-healing path in the field reports. Fold this into
+14:21:08.002         MODIFIERS.md section 2 and lift the "never tested" caveat.
+14:21:08.003 
+14:21:08.034 
+14:21:08.035   csv  : C:\Users\thoua\AppData\Local\Temp\kmrepro\mods-20260824-141724.csv
+14:21:08.036   json : C:\Users\thoua\AppData\Local\Temp\kmrepro\mods-20260824-141724.json
+14:21:08.036   log  : C:\Users\thoua\AppData\Local\Temp\kmrepro\mods-20260824-141724.txt
+14:21:08.037 ==============================================================================

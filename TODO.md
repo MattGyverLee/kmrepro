@@ -158,8 +158,33 @@ so they come first.
   `kmproof.ps1` could not have detected it under any circumstances.
   `GetAsyncKeyState` sees it fine.
   **Method:** `kmmods.ps1` already watches it as `ZAPVK` and never injects it, so
-  any high bit there can only be Keyman's. Check the logs of any run. Currently
-  **unmeasured** — nothing prevents it and nothing was looking.
+  any high bit there can only be Keyman's. Check the logs of any run.
+
+  **MEASURED — the latch is real, 1/116 trials, 2026-08-24.** The logs already
+  held the answer; nothing new had to be run. Sweeping all `mods-*.txt` for a
+  `ZAPVK` inside a `held=` set returns exactly one hit in 116 trial lines:
+
+  ```
+  14:19:20.739  RALT  p1 [I] PREFIX-LATCH:ZAPVK
+     held=LSHIFT,RSHIFT,LCTRL,RCTRL,LALT,RALT+ZAPVK  text=EMPTY  <empty>
+  ```
+
+  So the prefix VK **does** latch. It is no longer a code-derived hypothesis, and
+  the "invisible to every text oracle" claim is confirmed in the same line —
+  `text=EMPTY`, and `kmproof.ps1` would have had nothing to look at.
+
+  **Mechanism hint worth chasing:** the one hit co-occurred with the *fully
+  accumulated* six-modifier latch set from §2c, i.e. late in a run after the most
+  injection had happened. More batches means more chances for a non-atomic
+  down/up pair to be split by a stall, which is exactly what `PostDummyKeyEvent`
+  predicts and what `keybd_sendprefix` cannot do.
+
+  **Still open — which emitter did it.** 1/116 does not distinguish them, and
+  `MODIFIERS.md` §2a-wire's `kmaltgr.ps1` capture saw *every* prefix KEYDOWN
+  matched by a KEYUP, so that run caught the atomic path only. Resolving it needs
+  a wire capture running during a trial that actually latches — i.e. `kmaltgr.ps1`
+  alongside `kmmods.ps1` for long enough to hit the ~1% event, with the `0xFF` /
+  `dwExtraInfo` markers distinguishing the two emitters.
   **Fix, if confirmed:** route `PostDummyKeyEvent` through the same atomic
   `SendInput` batch `keybd_sendprefix` uses.
 
