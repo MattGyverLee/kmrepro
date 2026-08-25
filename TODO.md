@@ -68,6 +68,99 @@ so they come first.
   all" — which matches the field description better than the stuck-modifier wedge
   does. Verify by forcing a reinstall failure.
 
+- [ ] **I10 — The dropped `QIT_VKEYUP`: a stuck LETTER or NUMBER key.**
+  Raised 2026-08-24 by "can a letter/number get stuck?". Written up in
+  `MODIFIERS.md` §2a. Cache A provably cannot do it — `do_keybd_event` has four
+  call sites, all in `keybd_shift.cpp`, all emitting `modifiers[6]` or the prefix
+  VK. But `kmprocess.cpp:181-182` queues `QIT_VKEYDOWN` then `QIT_VKEYUP` for
+  `_td->state.vkey` and **ignores both return values**, while `QueueAction`
+  (`appint/appint.cpp:51-57`) refuses and beeps at `MAXACTIONQUEUE - 1` = 1023.
+  At exactly that boundary the down lands and the up is dropped, and
+  `aiWin2000Unicode.cpp:138-166` — where VKEYDOWN and VKEYUP are independent
+  `case` arms with nothing pairing them — `SendInput`s an unmatched KEYDOWN for
+  the key the user just pressed.
+  **Why it matters:** it is the only known path to a stuck *ordinary* key, and it
+  is the correct destination for any field report of one. Filing that against
+  Cache A would send the fix to the wrong file.
+  **Reachability is narrow and must not be overstated:** needs `IsLegacy()`, a
+  `use(final)`-style default-output request, and ≥1023 queued actions from one
+  keystroke. Nothing says this has happened in the field.
+  **Method:** the failure is audible — `QueueAction` calls `MessageBeep` when it
+  refuses. Construct a keyboard whose rule queues >1023 actions, drive it in a
+  legacy app, and watch `GetAsyncKeyState` on the pressed key.
+  **Fix, if confirmed:** check the first `QueueAction`'s return and skip the pair
+  if it fails, or reserve two slots. One line either way.
+
+- [ ] **I11 — `PostDummyKeyEvent` is not atomic.** `MODIFIERS.md` §5a.
+  The prefix VK has two emitters. `keybd_sendprefix()` writes down+up into one
+  `SendInput` batch and cannot split. `PostDummyKeyEvent()`
+  (`keyman32.cpp:923-926`, called from `k32_lowlevelkeyboardhook.cpp:294` and
+  `kmhook_keyboard.cpp:146`/`:195`) uses **two separate legacy `keybd_event`
+  calls**. A stall between them — the same UI-thread stall this whole
+  investigation is about — loses the KEYUP and latches the prefix VK.
+  **Why it matters:** on a default machine that key is `0x0E`, a reserved VK no
+  application maps, so it is **invisible to every text-based oracle**;
+  `kmproof.ps1` could not have detected it under any circumstances.
+  `GetAsyncKeyState` sees it fine.
+  **Method:** `kmmods.ps1` already watches it as `ZAPVK` and never injects it, so
+  any high bit there can only be Keyman's. Check the logs of any run. Currently
+  **unmeasured** — nothing prevents it and nothing was looking.
+  **Fix, if confirmed:** route `PostDummyKeyEvent` through the same atomic
+  `SendInput` batch `keybd_sendprefix` uses.
+
+- [ ] **I12 — What resets the accumulated latch set between runs?**
+  Observed 2026-08-24, written up in `MODIFIERS.md` §2c. Within one run the held
+  set grows monotonically — six arms, six additions, never a removal — even
+  though the OS-level state is verifiably cleared after every trial and every
+  following trial's pre-check reads `held=none`. But a run started minutes later
+  begins completely clean, **with no Keyman restart**. So something resets it on
+  a timescale longer than the ~5 s between trials and shorter than the couple of
+  minutes between runs.
+  **Why it matters:** it decides whether §2c is a real field prediction (the
+  symptom compounds across a session) or a harness artefact. It also bears
+  directly on **D1** — if some existing path already re-validates Cache A on a
+  timer, the fix may be to make that path reliable rather than to add a new one.
+  **Candidates:** an idle/timeout resync somewhere in the engine; `InitThread`
+  re-seeding from `GetKeyboardState` (`serialkeyeventserver.cpp:251`) when a new
+  process attaches or a thread is recycled; the focus change as PowerShell exits
+  and Notepad regains focus firing `KM_FOCUSCHANGED` → `GetCapsAndNumlockState`
+  (`kmhook_getmessage.cpp:357`) — note that helper resyncs **five modifiers**, not
+  just the toggles (finding 4a), which would explain this exactly.
+  **Status 2026-08-24: two hypotheses tested, both dead.** `kmmods.ps1 -FocusTest`
+  latches LShift, clears OS state, confirms the cache still re-asserts it, then
+  applies one intervention:
+  - wait 30 s, foreground untouched -> **not cleared**
+  - minimise + restore the target, focus verified returned -> **not cleared**
+  - new process 9 s later -> **cleared**
+
+  So it is **not a timer** and **not** the `KM_FOCUSCHANGED` ->
+  `GetCapsAndNumlockState` resync, which was the neat answer and is now refuted.
+  Crossing a process boundary clears it in *less* elapsed time than the wait that
+  did not.
+
+  **The sweep confound was tested and is also dead.** `-SweepTest -SweepCount N`,
+  one N per process: 1 sweep -> not cleared; 2 consecutive sweeps (reproducing
+  the `finally` path) -> not cleared. Both confirmed OS state `held=none` in
+  between, so the sweep does its job and the next injected batch simply undoes
+  it.
+
+  **Score so far:** wait 30 s no; focus out and back no; 1 sweep no; 2 sweeps no;
+  **new process 9 s later yes.** Crossing a process boundary is the only thing
+  that has ever cleared this.
+
+  **The remaining fork, and it is not cheap.** The injecting process is not the
+  host — Notepad and keyman.exe both ran continuously throughout — so either
+  (a) this is Keyman state scoped to something tracking the injector, which is
+  surprising and is real support for **I6**, or (b) part of what is being
+  observed is cleaned up by **Windows** on process exit and is not Keyman state
+  at all. Separating them needs an injector that can exit while the observer
+  survives; this harness cannot do that today. Options: a small standalone
+  injector exe driven by the harness, or observe from a third process while the
+  injector dies.
+
+  **Do not quote (a) without (b) attached.** It is the more interesting reading
+  and that is exactly why it needs the control.
+
 - [ ] **I2 — Enumerate the real-world `E0 1D` emitters.**
   Other seed candidates from `MODIFIERS.md` §3d.2: RDP / Citrix / VNC, VM guest
   tools, PowerToys / AutoHotkey remaps, KVM switches, on-screen keyboard, and
@@ -235,36 +328,68 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
 
 ## 4. Harness work
 
-- [ ] **H1 — Add L/R Ctrl arms.** Ctrl has never been exercised on either side,
-  despite being the strongest field signal and the only modifier that cannot
-  self-heal. **Blocked on H2** — without a working oracle a Ctrl arm reports
-  false negatives.
+- [x] **H1 — Add L/R Ctrl arms.** Done in `kmmods.ps1`, which inverts kmproof's
+  axis: the keyboard is the constant and the **key** is the variable. All six
+  Cache A slots are stimulus targets, and Insert / Win / Apps / NumLock /
+  CapsLock / ScrollLock run as **negative controls** under the identical
+  stimulus, so `MODIFIERS.md` §2 stops being inference. **Not yet run** — see
+  **T9**.
 
-- [ ] **H2 — A Ctrl-capable oracle.** The `abc`/`ABC` check reads **CLEAN** under
-  a stuck Ctrl, because Ctrl produces no case change — it swallows keys and fires
-  stray accelerators. Same false-negative shape as the case-insensitive `-eq`
-  trap. Probe "did a literal `a` arrive at all", plus `GetAsyncKeyState` on all
-  six modifiers inside the failing iteration.
+- [x] **H2 — A Ctrl-capable oracle.** Done. `kmmods.ps1` carries a
+  **state oracle**: `GetAsyncKeyState` across all 17 watched VKs plus the three
+  aggregates, taken while the harness holds nothing, so any high bit is a
+  phantom by definition. It names *which* key is stuck, is identical for every
+  key, and cannot be fooled by accelerators, menus or swallowed keys. The text
+  oracle is kept but demoted to second, and only runs when the state oracle says
+  typing is safe.
+  Crossing the two is the actual payoff — it splits four states the old harness
+  scored identically: `PHANTOM:<mod>` (Cache A, real OS key state),
+  `CACHEB-SHIFT` (uppercase text but nothing held — the #16423 class),
+  `SWALLOWED` (no text, nothing held) and `CLEAN`.
+  Probe alphabet changed from kmproof's `abc` to **`jkq`**: current Notepad binds
+  Ctrl+B/I/U to bold/italic/underline and Ctrl+A/C to select-all/copy, so `abc`
+  is no longer safe to type with a possible Ctrl latch. `j`, `k`, `q` are bound
+  to nothing under Ctrl or Alt.
 
-- [ ] **H3 — Missing-key permanence arm.** Tests the distinctive claim in
-  `MODIFIERS.md` §3b without special hardware: latch `VK_RCONTROL` by injection,
-  then confirm no amount of physical typing clears it and only a Keyman restart
-  does. This is the arm that would explain the field reports the current repro
-  cannot. Pairs with **I7**.
+- [x] **H3 — Missing-key permanence arm.** Done: `kmmods.ps1 -Latch <MOD>`.
+  Latches the key by injection using the exact byte pattern
+  `do_keybd_event` produces (`keybd_shift.cpp:69-73` rewrites `VK_RCONTROL` to
+  `VK_CONTROL` + `KEYEVENTF_EXTENDEDKEY`), then tries each clearing action in
+  turn — ordinary typing, a tap of the **other side**, then the exact matching
+  KEYUP — and reports which one worked. The sibling-tap step is the crux: if
+  tapping LCtrl clears a latched RCtrl, the "no physical Right Ctrl" story in
+  §3b collapses, because every keyboard has a Left Ctrl. Pairs with **I7**.
+  **Not yet run** — see **T9**.
 
-- [ ] **H4 — Propagate the two known harness traps to the older scripts.**
+- [ ] **H4 — Propagate the known harness traps to the older scripts.**
   Per `TRIGGER.md`: `kmhunt.ps1`, `kmrepro.ps1` and `kmflex.ps1` still resolve the
   HKL from the top-level window (stale — must use `GetGUIThreadInfo(0).hwndFocus`)
   and still use `Write-Host` (measured 4301 ms/line on a congested console, which
   can silently let a 5 s freeze expire and turn a trial into a no-freeze
-  control). Only `kmproof.ps1` is correct on both counts. **Any number quoted
-  from the other three is suspect until this is done.**
+  control). `kmproof.ps1` and `kmmods.ps1` are correct on both counts. **Any
+  number quoted from the other three is suspect until this is done.**
+
+- [ ] **H6 — Fix the Right Shift extended flag, in `kmproof.ps1` too.**
+  Found while writing `kmmods.ps1`. `kmproof.ps1:288` has
+  `@{V=0xA1;E=$true; L='RShift'}`. Right Shift is scan `0x36` and is **not**
+  extended — only RCtrl (`E0 1D`) and RAlt (`E0 38`) are; `E0 36` is the
+  historical "fake shift" prefix. So `ClearMods` has probably never released
+  RShift and `TapAllMods` has probably never tapped it.
+  **Why it matters:** the "six-modifier KEYUP sweep did not recover it" result,
+  including the unexplained run in **I4**, was really a *five*-key sweep. Re-run
+  I4 after fixing. `kmmods.ps1`'s catalog already has it right and verifies every
+  scan code against `MapVirtualKey` at startup (all 17 matched on this machine,
+  2026-08-24).
 
 - [ ] **H5 — Diagnostic script for affected machines.** One pass collecting:
   `Zap Virtual Key Code` (both registry hives), `LowLevelHooksTimeout`,
   async + sync + toggle state for all 17 relevant VKs, focus-thread HKL, Keyman
-  version, and whether the machine has a physical Right Ctrl. Most of this exists
-  as one-off snippets from this session; consolidate it.
+  version, and whether the machine has a physical Right Ctrl.
+  **Mostly done by `kmmods.ps1 -CatalogOnly`**, which needs no Notepad and
+  injects nothing: it prints the full key catalog with each scan code checked
+  against `MapVirtualKey`, the resolved prefix VK and where it came from, and a
+  live async + toggle snapshot. Still missing: `LowLevelHooksTimeout`, the Keyman
+  version from the registry, and the physical-Right-Ctrl question.
 
 ---
 
@@ -293,6 +418,27 @@ Gates before either defect is called done.
   exists in duplicate precisely because the GetMessage hook and TSF paths do not
   both fire everywhere (`kmhook_getmessage.cpp:444-449`).
 
+**For the scope question (`kmmods.ps1`, H1-H3):**
+
+- [x] **T9 — Run it.** Done 2026-08-24. Results in `MODIFIERS.md` §2b and §3b.
+  - Ctrl arm, 5 passes: **LCTRL 5/5, RCTRL 5/5**.
+  - Full matrix, controls first from a clean cache, 2 passes: all six Cache A
+    slots **2/2 self-latched**; Insert / NumLock / CapsLock / ScrollLock
+    **0/2**, never appearing in the held list at all.
+  - `-Latch RCTRL`: cleared **only** by the exact matching KEYUP. Not by typing,
+    not by tapping Left Ctrl.
+  Caveats carried forward: run was at `-LoadThreads 0` (the freeze stimulus alone
+  was sufficient — no load needed), only candidate `I` was exercised, and
+  candidate `A` (the no-freeze internal control) has **not** been run here, so
+  this run cannot by itself say the freeze is the mechanism. See **T10**.
+
+- [x] **T10 — Candidate A on the modifier matrix.** Done 2026-08-24: **0/20**
+  across all ten keys, every trial `CLEAN`, including the six that latch 2/2
+  under candidate `I`. The freeze is the mechanism for all six, not just LShift
+  by inheritance from `kmproof.ps1`. Also worth recording: every latch in this
+  session was obtained at `-LoadThreads 0`, so the confirmed freeze alone is
+  sufficient and no CPU load is required.
+
 **For the Cache A work, whenever it is taken up:**
 
 - [ ] **T6 — Re-run the three-arm proof with Ctrl included.** US / MSKLC / Keyman,
@@ -315,11 +461,19 @@ Gates before either defect is called done.
    carry two known-bad patterns.
 3. **F1 / F2 / F3** — self-contained, reviewable, and independent of the Cache A
    question. Gate on **T1-T5**. Settle **F5** with the reviewer before opening.
-4. **H2 -> H1 -> H3** to close the Ctrl gap in the repro, with **I7** if hardware
-   can be found.
-5. **I2 / I3 / I4 / I6 / I8 / I9** as the remaining open questions. **I3** is the
-   one that blocks a complete field story for the Cache A PR. **I8** is the one
-   most likely to turn out to be a co-factor rather than a dead end, since it
-   independently explains the post-update clustering.
+4. ~~**H2 -> H1 -> H3**~~ (built as `kmmods.ps1`), ~~**T9**~~ and ~~**T10**~~ are
+   done, all 2026-08-24. **I12** has had four hypotheses killed and is down to
+   one fork that needs a separate injector process to resolve — no longer cheap,
+   so weigh it against **I1**, which is cheap and higher-value. Then **I7** if
+   affected hardware can be found.
+5. **I2 / I3 / I4 / I6 / I8 / I9 / I10 / I11 / I12** as the remaining open
+   questions.
+   **I3** is the one that blocks a complete field story for the Cache A PR.
+   **I8** is the one most likely to turn out to be a co-factor rather than a dead
+   end, since it independently explains the post-update clustering. **I10** and
+   **I11** are cheap to check and both are *different defects* that would
+   otherwise be misfiled as this one — I11 costs nothing at all, since every
+   `kmmods.ps1` run already collects the evidence. Do **H6** before re-running
+   **I4**; that result was measured with a five-key sweep, not six.
 6. **D1-D6** only when the Cache A work is picked up. **D1** should land as a
    shared helper with #16423's resync, not as a second independent patch.

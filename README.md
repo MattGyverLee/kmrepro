@@ -49,8 +49,14 @@ Two consequences that took the longest to establish:
 | It is Keyman, not the layout / Windows / the harness | **measured.** Three-arm controlled test: US 0/10, Microsoft Cameroon QWERTY 2017 0/10, Keyman wedged. `TRIGGER.md` §3 |
 | The wedge is charged while a non-Keyman keyboard is active | **measured 3/3** (`kmproof.ps1 -ChargeTest`) |
 | Blast radius is machine-wide, not Keyman-only | **measured** |
-| Scope is exactly six keys: L/R Shift, Ctrl, Alt | **proven from code.** `MODIFIERS.md` §2 |
-| Right Ctrl can be phantom-stuck with no physical Right Ctrl key | **proven from code**, not yet confirmed on affected hardware. `MODIFIERS.md` §3 |
+| Scope is exactly six keys: L/R Shift, Ctrl, Alt | **MEASURED 2026-08-24.** All six latch 2/2 (Ctrl 7/7 per side); Insert / NumLock / CapsLock / ScrollLock 0/2 under the identical stimulus. `MODIFIERS.md` §2b |
+| Right Ctrl can be phantom-stuck with no physical Right Ctrl key | **MEASURED 2026-08-24.** A latched Right Ctrl is cleared only by the exact matching KEYUP — not by typing, not by tapping Left Ctrl. Still unconfirmed on affected *hardware*. `MODIFIERS.md` §3b |
+| A stuck Ctrl can read CLEAN to a text-only oracle | **measured.** `held=RCTRL` with the text probe returning correct lowercase. `kmproof.ps1` would have scored those trials CLEAN. `MODIFIERS.md` §2b |
+| The latch set accumulates within a session | **observed, mechanism still unknown.** Survives a 30 s wait, a verified focus round-trip, one KEYUP sweep and two consecutive sweeps. Cleared only by crossing a process boundary, 9 s later. Four hypotheses tested and killed. `MODIFIERS.md` §2c, `TODO.md` I12 |
+| The freeze is the mechanism, for all six keys | **measured.** Candidate A (identical stimulus, no freeze posted) latched 0/20 across all ten keys. Previously known for LShift only. `MODIFIERS.md` §2b |
+| A stuck **letter or number** is not this bug | **proven from code.** `do_keybd_event` has four call sites, all emitting `modifiers[6]` or the prefix VK. `MODIFIERS.md` §2a |
+| …but a stuck letter *is* reachable by a **different** defect | **proven from code, unmeasured.** Dropped `QIT_VKEYUP` at the queue-full boundary — `kmprocess.cpp:181-182` ignores both `QueueAction` return values. Narrow reachability. `TODO.md` I10 |
+| A stuck **prefix VK** is reachable by a third defect | **proven from code, unmeasured.** `PostDummyKeyEvent` uses two non-atomic `keybd_event` calls. Invisible to every text oracle; only `GetAsyncKeyState` sees it. `TODO.md` I11 |
 | **What stalls the thread in the field** | **NOT established.** The repro induces the stall with a debug-only command. CPU load alone did not reproduce it. This is the main open gap — `TODO.md` I3 |
 | The original watchdog hypothesis | **not supported.** See "Historical record" below |
 
@@ -86,18 +92,21 @@ measurements, not because their conclusions hold.
 
 ## Scripts
 
-**Use `kmproof.ps1`.** It is the only script correct on both known harness
-hazards (see the warning below).
+**Use `kmproof.ps1` and `kmmods.ps1`.** They are the only scripts correct on both
+known harness hazards (see the warning below). They test perpendicular axes of
+the same experiment: `kmproof` fixes the modifier and varies the keyboard,
+`kmmods` fixes the keyboard and varies the modifier.
 
 | script | role |
 |---|---|
-| **`kmproof.ps1`** | **Current tool.** Three-arm controlled test — US / MSKLC / Keyman, one stimulus, only the active keyboard varies. This is what supports the attribution claim. Modes include `-ChargeTest` (charge while inactive, fire on activation) and `-Sweep` (separate Keyman-only causation from machine-wide blast radius). |
+| **`kmproof.ps1`** | **Attribution.** Three-arm controlled test — US / MSKLC / Keyman, one stimulus, only the active keyboard varies. This is what supports the "it is Keyman" claim. Modes include `-ChargeTest` (charge while inactive, fire on activation) and `-Sweep` (separate Keyman-only causation from machine-wide blast radius). Exercises **LShift and RAlt only**. |
+| **`kmmods.ps1`** | **Scope.** Which of the thirteen candidate keys can actually be stuck. Same stimulus applied to each of the six Cache A slots *and* to Insert / Win / Apps / NumLock / CapsLock / ScrollLock as negative controls, so `MODIFIERS.md` §2 stops being inference. Carries the modifier-agnostic **state oracle** (`GetAsyncKeyState`) that `kmproof`'s case-change oracles cannot provide, which is what makes Ctrl measurable at all. `-Latch <MOD>` is the missing-key permanence arm. Covers `TODO.md` H1, H2 and H3. |
 | `kmhunt.ps1` | Earlier single-keyboard version. Answers "what *transitions* Keyman from clean to wedged" via probe -> action -> probe. Can show the wedge but **cannot attribute it** — with one keyboard you cannot separate Keyman from the layout, from Windows, or from the harness. |
 | `kmrepro.ps1` | Rig for the original watchdog hypothesis. `Status`, `Arm`, `Freeze`, `GhostKey`, `ModWatch`, `Soak`, `AutoTest`. Still useful for `Status` (build/watchdog identification) and for inducing the stall. |
 | `kmflex.ps1` | FieldWorks driver. FLEx auto-switches keyboard per writing system, which makes clicking between an Ngoreme field and an English field a clean keyboard-switch vector. FLEx RootSite views expose no UI Automation text, so verification is by screenshot. |
 | `kmshot.ps1` | Screen capture and positional click helper, for targets UI Automation cannot read. |
 
-### [WARN] Three of the four scripts carry known-bad patterns
+### [WARN] Three of the older scripts carry known-bad patterns
 
 `kmhunt.ps1`, `kmrepro.ps1` and `kmflex.ps1` have **not** been updated for two
 hazards that were found the hard way. **Any number quoted from those three is
@@ -113,6 +122,16 @@ suspect until `TODO.md` H4 is done.**
    That is a *correctness* hazard here, not a speed one — multi-second dead time
    can let a 5 s freeze expire before the probe runs, silently turning a trial
    into a no-freeze control.
+
+And a third, found while writing `kmmods.ps1` and affecting **`kmproof.ps1` too**:
+
+3. **Right Shift is marked extended, and it is not.** `kmproof.ps1:288` has
+   `@{V=0xA1;E=$true; L='RShift'}`. Right Shift is scan `0x36`, unextended; only
+   Right Ctrl (`E0 1D`) and Right Alt (`E0 38`) carry the extended bit. `E0 36`
+   is the historical "fake shift" prefix, not a Right Shift. So `ClearMods` has
+   probably never released RShift and `TapAllMods` has probably never tapped it
+   — meaning the "six-modifier KEYUP sweep", including the unexplained run in
+   `TODO.md` I4, was really a five-key sweep. `kmmods.ps1` has it right.
 
 ---
 
@@ -135,6 +154,19 @@ powershell -ExecutionPolicy Bypass -File .\kmproof.ps1 -LoadThreads 4
 
 # Charge on a Microsoft keyboard, fire on switching back to Keyman
 powershell -ExecutionPolicy Bypass -File .\kmproof.ps1 -ChargeTest 5
+
+# --- scope: which keys can actually stick -------------------------------
+# Catalog + live modifier state. Injects nothing, needs no Notepad.
+powershell -ExecutionPolicy Bypass -File .\kmmods.ps1 -CatalogOnly
+
+# The scope matrix: 6 Cache A slots + immune-key negative controls
+powershell -ExecutionPolicy Bypass -File .\kmmods.ps1 -LoadThreads 4
+
+# The Ctrl gap, which no run has ever covered
+powershell -ExecutionPolicy Bypass -File .\kmmods.ps1 -Mods LCTRL,RCTRL -Only I -Repeat 5
+
+# Missing-key permanence: latch Right Ctrl, then see what clears it
+powershell -ExecutionPolicy Bypass -File .\kmmods.ps1 -Latch RCTRL
 ```
 
 Logs land in `$env:TEMP\kmrepro` by default (`-LogDir` to change).
