@@ -66,6 +66,59 @@ So the scope boundary is provable from code, not inferred:
 | **Fn** | no | no | **immune by construction.** Fn is resolved in keyboard firmware/EC and does not surface to Windows as a virtual key on essentially all hardware |
 | **Insert** | no | no | immune — but see §5, there is a registry footgun nearby |
 
+## 2a-wire. The defect observed directly, at the wire — 2026-08-25
+
+Everything before this was inferred from cache state plus `GetAsyncKeyState`.
+`kmaltgr.ps1` installs a `WH_KEYBOARD_LL` hook and records `vkCode`, `scanCode`,
+`flags` and `dwExtraInfo` for every event on the machine, so the injection
+itself can be watched. Running it alongside a single `kmmods.ps1` LShift trial
+captured the whole `keybd_shift_release` / `keybd_shift_reset` cycle:
+
+```
+ 7371.5  DN  LSHIFT  scan=0x2A  INJ  KM-SERIALIZED   <- the harness's LShift, replayed
+10119.4  DN  vk0x0E  scan=0xFF  INJ                  <- keybd_sendprefix, down
+10169.2  UP  vk0x0E  scan=0xFF  INJ                  <- keybd_sendprefix, up
+10200.5  UP  LSHIFT  scan=0xFF  INJ                  <- keybd_shift_release
+10845.6  DN  LSHIFT  scan=0xFF  INJ                  <- keybd_shift_reset RE-PRESSES it
+...
+13962.4  DN  LSHIFT  scan=0xFF  INJ                  <- and again, with NO matching UP
+19302.2  UP  LSHIFT  scan=0x2A  INJ  KM-SERIALIZED   <- the harness's recovery sweep
+```
+
+The tool's own analysis flagged it:
+
+```
+[UNMATCHED KEYDOWN] 1 Keyman-injected KEYDOWN(s) with no later KEYUP
+```
+
+**That is `keybd_shift_reset` (`keybd_shift.cpp:161-176`) caught in the act.**
+Not inferred from a stale cache, not deduced from typed output — the unmatched
+KEYDOWN, on the wire, with Keyman's own `SCAN_FLAG_KEYMAN_KEY_EVENT` (`0xFF`,
+`keyman64.h:132`) stamped on it. This is the single most direct piece of evidence
+in the repo and it should be what a PR description leads with.
+
+### Two markers worth knowing, both confirmed against source
+
+| marker | meaning |
+|---|---|
+| `scanCode = 0xFF` | `SCAN_FLAG_KEYMAN_KEY_EVENT` (`keyman64.h:132`). Keyman **synthesized** this key. `keybd_shift_reset`'s phantom presses carry it. |
+| `dwExtraInfo = 0x4B4D0000` | `EXTRAINFO_FLAG_SERIALIZED_USER_KEY_EVENT` (`keyman64.h:134`), "KM" in ASCII. `serialkeyeventserver.cpp:488/495/526` **replaying a real user keystroke**, with its original scan code. |
+
+They are different paths and must not be conflated: a replayed user key is the
+serializer doing its job; a `0xFF` key is Keyman inventing one. Only the second
+can be a phantom.
+
+### The prefix VK, observed (bears on I11)
+
+`vk0x0E scan=0xFF` appears repeatedly — `keybd_sendprefix` bracketing each batch,
+exactly as `keybd_shift.cpp:112-118` describes. In this capture **every prefix
+KEYDOWN had a matching KEYUP**, so I11's non-atomic `PostDummyKeyEvent` path did
+not misfire here. That is one clean run, not a clearance: the two emitters are
+still different (`keybd_sendprefix` is atomic, `PostDummyKeyEvent` is not) and
+`kmmods.ps1` did observe one `PREFIX-LATCH` on 2026-08-24. Keep watching.
+
+---
+
 ## 2b. §2 measured, not inferred — 2026-08-24
 
 §2 was derived from reading `isModifierKey()` and the two `modifiers[6]` arrays.
@@ -124,13 +177,19 @@ An earlier pass looked like it showed a Right Ctrl latch dragging Left Ctrl with
 it — plausible, because `do_keybd_event` (`keybd_shift.cpp:63-88`) collapses
 `VK_RCONTROL`/`VK_LCONTROL` to a bare `VK_CONTROL` and passes
 `SCAN_FLAG_KEYMAN_KEY_EVENT` (`0xFF`, `keyman64.h:132`) as the scan code, which is
-not a real scan code and leaves Windows nothing to resolve the side from.
+not a real scan code and leaves Windows nothing but the extended bit to resolve
+the side from.
 
 **It was an artefact.** `LCTRL` had run in the arm immediately before, and the
 apparent pairing was §2c residue. Re-run alone from a clean cache, `RCTRL` latches
-`RCTRL` and nothing else — 2/2. Same for `RSHIFT`. The `0xFF` scan code question
-is still open and still worth asking, but this run does not answer it and must
-not be cited as if it did.
+`RCTRL` and nothing else — 2/2. Same for `RSHIFT`.
+
+So the extended bit alone *is* sufficient to resolve the side even with a `0xFF`
+scan code, at least for Ctrl. Note the asymmetry in `do_keybd_event` though: for
+Shift it takes the trouble to set `scan = SCANCODE_RSHIFT` explicitly, while for
+Ctrl and Alt it leaves `0xFF` and relies purely on `KEYEVENTF_EXTENDEDKEY`. That
+asymmetry is unexplained and still worth asking about, but the measurement says
+it is not currently producing a wrong-side latch.
 
 ---
 

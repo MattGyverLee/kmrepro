@@ -121,19 +121,29 @@
                 HAZARDS.md gotcha 1, the bug that corrupted live lexicon data
                 twice. Every key in the catalog carries an explicit Ext flag.
 
-  A KNOWN BUG IN kmproof.ps1's $MODS TABLE
-  ----------------------------------------
-  kmproof.ps1:288 marks RShift as extended:
+  THE RIGHT SHIFT EXTENDED FLAG - A CORRECTION
+  --------------------------------------------
+  An earlier version of this header claimed kmproof.ps1:288 (`E=$true` for
+  RShift) meant its ClearMods had never released Right Shift, and that TODO I4
+  therefore needed re-running against a "five-key sweep". THAT WAS WRONG, and it
+  is corrected here so nobody acts on it.
 
-      @{V=0xA1;E=$true; L='RShift'}
+  Measured at the wire with kmaltgr.ps1, 2026-08-25: injecting VK_RSHIFT with
+  the extended flag and without it produces byte-identical events at a
+  WH_KEYBOARD_LL hook - both `RSHIFT scan=0x36 EXT|INJ`. Windows resolves the
+  side from the side-specific VIRTUAL KEY (0xA1) and reports LLKHF_EXTENDED for
+  Right Shift regardless of what the caller passed. On this path the flag is
+  ignored. kmproof's sweeps were always six keys.
 
-  Right Shift is scan 0x36 and is NOT extended - only RCtrl (E0 1D) and RAlt
-  (E0 38) are. Sending E0 36 is the historical "fake shift" prefix, not a Right
-  Shift. So kmproof's ClearMods has probably never actually released RShift, and
-  its TapAllMods has probably never actually tapped it. This does not invalidate
-  its LShift/RAlt results, but it does mean "the six-modifier KEYUP sweep did
-  not recover it" - including the unexplained run in TODO I4 - was measured with
-  a five-key sweep. The catalog here has it right. Worth re-checking I4.
+  Right Shift genuinely is scan 0x36 and unextended, so this catalog still marks
+  it Ext=$false - but as a matter of form, not because it changes behaviour.
+
+  WHERE THE BIT DOES DECIDE THE SIDE: when the caller passes the GENERIC vk.
+  Keyman's do_keybd_event (keybd_shift.cpp:63-88) collapses the side-specific
+  VKs to VK_SHIFT / VK_CONTROL / VK_MENU, after which the scan code and extended
+  bit are the only discriminators left. It sets scan = SCANCODE_RSHIFT explicitly
+  for Right Shift for exactly that reason, while passing a bare 0xFF for Ctrl and
+  Alt (see s2b).
 
   MODES
     (default)      matrix: every modifier in -Mods x every candidate in -Only

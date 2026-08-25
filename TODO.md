@@ -35,6 +35,43 @@ so they come first.
   the Keyman TIP, the MSKLC layout, and US, on both this machine and affected
   field hardware.
 
+  **Built: `kmaltgr.ps1`. Half answered, 2026-08-25.**
+
+  Injected RAlt, all three arms (`-Arms`):
+
+  | arm | synthetic Ctrl? | side | extended? |
+  |---|---|---|---|
+  | US | none | — | — |
+  | MSKLC | **yes**, `scan=0x21D` | **LEFT** | **no** |
+  | Keyman | **none at all** | — | — |
+
+  So on this machine the AltGr path seeds `LCTRL`, non-extended — the standard
+  behaviour — and on the Keyman arm it does not fire at all, because the TIP
+  handles RAlt itself rather than relying on the layout's AltGr.
+
+  Two incidental results worth keeping:
+  - **Injection does trigger the layout's AltGr synthesis.** It was not obvious
+    it would; it does. `scan=0x21D` is Windows' own marker for the fake Ctrl, so
+    this is positive identification rather than a nearby Ctrl coincidence.
+  - An `LCTRL` seed is **still a stuck Ctrl** — `LCTRL` latches 7/7 (s2b). It is
+    merely clearable, because every keyboard has a physical Left Ctrl. The
+    severity escalation this item is really about needs the *extended* variant.
+
+  **STILL OPEN, and it is the half that matters: the PHYSICAL test.**
+  Everything above used `keybd_event`. Only a real finger on a real AltGr key
+  exercises the actual keyboard driver and any vendor Fn-layer remapping sitting
+  in front of it — which is exactly the population s3d item 2 is about, and
+  exactly where a Right Ctrl remap would live. Two attempts on 2026-08-25
+  captured zero events because nobody was at the keyboard during the window; the
+  hook itself is verified working (it caught a cross-process injection
+  immediately).
+
+  **To finish it:** run `.\kmaltgr.ps1 -Watch 45` interactively so the countdown
+  is visible, then press the physical AltGr several times, type `;` `e`
+  `AltGr+N`, and tap a physical Right Ctrl if the keyboard has one. Then run the
+  same on affected field hardware, which is the reading that actually decides
+  the severity.
+
 - [ ] **I5 — Does Cache A exist in the 64-bit engine?**
   `serialkeyeventserver.cpp` is wrapped `#ifndef _WIN64` (`:7` / `:595`), so the
   server object is compiled into the 32-bit engine only, while the LL hook calls
@@ -369,17 +406,32 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
   control). `kmproof.ps1` and `kmmods.ps1` are correct on both counts. **Any
   number quoted from the other three is suspect until this is done.**
 
-- [ ] **H6 — Fix the Right Shift extended flag, in `kmproof.ps1` too.**
-  Found while writing `kmmods.ps1`. `kmproof.ps1:288` has
-  `@{V=0xA1;E=$true; L='RShift'}`. Right Shift is scan `0x36` and is **not**
-  extended — only RCtrl (`E0 1D`) and RAlt (`E0 38`) are; `E0 36` is the
-  historical "fake shift" prefix. So `ClearMods` has probably never released
-  RShift and `TapAllMods` has probably never tapped it.
-  **Why it matters:** the "six-modifier KEYUP sweep did not recover it" result,
-  including the unexplained run in **I4**, was really a *five*-key sweep. Re-run
-  I4 after fixing. `kmmods.ps1`'s catalog already has it right and verifies every
-  scan code against `MapVirtualKey` at startup (all 17 matched on this machine,
-  2026-08-24).
+- [x] **H6 — Right Shift extended flag. RAISED, THEN DISPROVED.**
+  `kmproof.ps1:288` had `@{V=0xA1;E=$true; L='RShift'}`. Right Shift is scan
+  `0x36` and is not extended, so the entry was wrong on its face; it is now
+  `E=$false`. Changed for form only.
+
+  **The consequence originally claimed here was WRONG and is retracted.** This
+  entry said `ClearMods` had never released RShift, that the six-modifier sweep
+  was really five keys, and that **I4** needed re-running because of it. None of
+  that holds.
+
+  Measured at the wire with `kmaltgr.ps1`, 2026-08-25: injecting `VK_RSHIFT`
+  with the extended flag and without it produces byte-identical events at a
+  `WH_KEYBOARD_LL` hook — both `RSHIFT scan=0x36 EXT|INJ`. Windows resolves the
+  side from the side-specific **virtual key** (`0xA1`); the scan code and
+  extended flag are ignored on this path, and it reports `LLKHF_EXTENDED` for
+  Right Shift either way. Every sweep this repo has ever run was six keys.
+
+  **I4 is therefore unaffected** and needs no re-run on this account.
+
+  Worth keeping for the mechanism it exposed: the extended bit *does* decide the
+  side when the caller passes the **generic** VK. Keyman's `do_keybd_event`
+  (`keybd_shift.cpp:63-88`) collapses the side-specific VKs to `VK_SHIFT` /
+  `VK_CONTROL` / `VK_MENU`, leaving the scan code and extended bit as the only
+  discriminators — which is why it sets `scan = SCANCODE_RSHIFT` explicitly for
+  Right Shift, and why its bare `0xFF` for Ctrl and Alt is worth asking about
+  (`MODIFIERS.md` s2b).
 
 - [ ] **H5 — Diagnostic script for affected machines.** One pass collecting:
   `Zap Virtual Key Code` (both registry hives), `LowLevelHooksTimeout`,
@@ -473,7 +525,8 @@ Gates before either defect is called done.
    end, since it independently explains the post-update clustering. **I10** and
    **I11** are cheap to check and both are *different defects* that would
    otherwise be misfiled as this one — I11 costs nothing at all, since every
-   `kmmods.ps1` run already collects the evidence. Do **H6** before re-running
-   **I4**; that result was measured with a five-key sweep, not six.
+   `kmmods.ps1` run already collects the evidence. **H6 is closed and was a false
+   alarm** — I4 does *not* need re-running on its account, contrary to what this
+   list said earlier.
 6. **D1-D6** only when the Cache A work is picked up. **D1** should land as a
    shared helper with #16423's resync, not as a second independent patch.

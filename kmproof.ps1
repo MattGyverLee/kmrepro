@@ -285,8 +285,36 @@ function Kd([int]$v, [switch]$E) { $f = 0; if ($E) { $f = $EXT }; [Kp]::keybd_ev
 function Ku([int]$v, [switch]$E) { $f = $UP; if ($E) { $f = $f -bor $EXT }; [Kp]::keybd_event([byte]$v, [byte][Kp]::MapVirtualKey($v,0), $f, [UIntPtr]::Zero) }
 function Tp([int]$v, [int]$g = 70, [switch]$E) { Kd $v -E:$E; Start-Sleep -Milliseconds 40; Ku $v -E:$E; Start-Sleep -Milliseconds $g }
 
+# RShift set to E=$false for correctness of form only. It changes NOTHING about
+# this script's behaviour, past or present - see below before concluding it does.
+#
+# Right Shift is scan 0x36 and is not extended; only RCtrl (E0 1D) and RAlt
+# (E0 38) are. So E=$true was wrong on its face.
+#
+# BUT IT WAS HARMLESS, AND THE FIRST WRITE-UP OF THIS WAS WRONG.
+# Measured at the wire with kmaltgr.ps1, 2026-08-25. Injecting VK_RSHIFT with the
+# extended flag and without it produces byte-identical events at a
+# WH_KEYBOARD_LL hook - both `RSHIFT scan=0x36 EXT|INJ`. Windows resolves the
+# side from the side-specific VIRTUAL KEY (0xA1), not from the scan code or the
+# extended flag, and it reports LLKHF_EXTENDED for Right Shift either way. The
+# flag is simply ignored on this path.
+#
+# So ClearMods and TapAllMods HAVE always released and tapped Right Shift
+# correctly. The six-modifier KEYUP sweep really was six keys. In particular
+# TODO I4 - the one run that went from wedged to emitting nothing - does NOT
+# need re-running on account of this, and an earlier draft of this comment
+# claiming otherwise was mistaken.
+#
+# WHERE THE EXTENDED BIT DOES DECIDE THE SIDE: when the caller passes the
+# GENERIC vk. Keyman's do_keybd_event (keybd_shift.cpp:63-88) collapses
+# VK_LSHIFT/VK_RSHIFT to VK_SHIFT, VK_L/RCONTROL to VK_CONTROL and
+# VK_L/RMENU to VK_MENU, at which point the scan code and the extended bit are
+# the only discriminators left. That is exactly why it sets
+# scan = SCANCODE_RSHIFT explicitly for Right Shift - and why it is worth asking
+# what its bare 0xFF scan code plus an extended bit resolves to for Ctrl and Alt
+# (MODIFIERS.md s2b).
 $MODS = @(
-  @{V=0xA0;E=$false;L='LShift'}, @{V=0xA1;E=$true; L='RShift'}
+  @{V=0xA0;E=$false;L='LShift'}, @{V=0xA1;E=$false;L='RShift'}
   @{V=0xA2;E=$false;L='LCtrl'},  @{V=0xA3;E=$true; L='RCtrl'}
   @{V=0xA4;E=$false;L='LAlt'},   @{V=0xA5;E=$true; L='RAlt'}
 )
