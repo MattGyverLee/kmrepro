@@ -90,14 +90,53 @@ declaration, a ten-line loop, and one call.
 
 | gate | result |
 |---|---|
-| `test:x86` | **19/19 pass** (1 disabled) |
-| `test:x64` | **18/18 pass** (1 disabled) — the x86-only `isModifierKey` case correctly compiles out |
+| `test:x86` | **19/19 pass** (1 disabled) at `a26aa611b5`; **33/33 pass** (2 disabled) after the follow-on branch — see *Follow-on* below |
+| `test:x64` | **18/18 pass** (1 disabled) at `a26aa611b5`; **32/32 pass** (2 disabled) after the follow-on — the x86-only `isModifierKey` case correctly compiles out |
 | `keyman32.dll`, Win32 Debug | links clean, 0 warnings |
 | `keyman64.dll`, x64 Debug | links clean, 0 warnings |
 | `keymanarm64.dll` | **not built** — no ARM64 MSVC libraries on this machine. See §6 |
 | `fakefreeze.exe`, x86 and x64 | builds via the new `build.sh`; clean rebuild leaves the tree clean |
 | name collisions | none. `PGETASYNCKEYSTATE` and `ReconcileModifierCache` appear nowhere else in the repo, and there was no pre-existing `GetAsyncKeyState` typedef |
 | blast radius of the header change | `keymanengine.h` is included by exactly two files, both PCHs (`keyman32/pch.h`, `keyman32/tests/pch.h`). Only two MSBuild projects are affected and both build. `kmtip.vcxproj` links `keyman32.lib` but includes no keyman32 header; `mcompile.vcxproj` includes only `kbd.h` |
+
+### Follow-on — the review's five gaps, implemented
+
+Ten further commits on the same branch. Of the six items in
+[`REVIEW-8064-reconcile-modifier-cache.md`](REVIEW-8064-reconcile-modifier-cache.md):
+items 1, 4 and 5 are **fixed**, item 6 is **refuted** (its premise was wrong), item 3
+is **answered in the negative** and item 2 is **unchanged**. Dispositions are recorded
+inline in that file; the short version:
+
+| commit | subject |
+|---|---|
+| `d922477da8` | `refactor(windows): define the managed modifier set once` |
+| `1ae2df282c` | `refactor(windows): extract PrepareInjectedInputBatch so the batch path is testable` |
+| `ae1f348b1a` | `test(windows): pin the batch reconcile so removing it fails the suite` |
+| `13c083f216` | `test(windows): characterise the lost-modifier-KEYDOWN mirror defect` (deliberately red) |
+| `00b17ee604` | `fix(windows): release modifiers the OS holds but the cache does not` |
+| `6b07cff02b` | `test(windows): probe what GetKeyboardState returns on a fresh thread` |
+| `14d2dc5c08` | `docs(windows): correct what the modifier-cache seed actually does` |
+| `e09c7bf645` | `docs(windows): enumerate modifier producers and add the triage procedure` |
+| `cb4911ac5b` | `docs(windows): link the drafted producer issues and correct a source path` |
+| `c1a7fa7992` | `fix(windows): release sticky OSK modifiers on every teardown path` — **UNVERIFIED, Delphi unavailable** |
+
+| gate | result |
+|---|---|
+| `test:x86` | **33/33 pass**, 2 disabled (`+14` over the baseline) |
+| `test:x64` | **32/32 pass**, 2 disabled (`+14`) |
+| both DLLs, full `-t:Rebuild` on Win32 and x64 | **0 compiler warnings, 0 errors** |
+| FR-014 mutation gate | deleting the reconcile inside `PrepareInjectedInputBatch` turns **3 tests red**; every pre-existing case stays green |
+| FR-018 mutation gate | a seventh VK makes `MAX_KEYEVENT_INPUTS_MODIFIERS` become 9 **on its own** |
+| G1 | red first (`13c083f216`), then green |
+| G3 — is prevention complete? | **no.** 3 unmitigated producer paths, 2 in the on-screen keyboard |
+
+**The one result that changes the story:** the on-screen keyboard can strand a
+modifier machine-wide, including an unclearable extended Right Control, because
+`ResetShiftStates` runs only from `FormClose` and the common dismissal paths go
+through `Release`/`FreeAndNil` instead. So #8064's symptom has a second confirmed
+producer and a field recurrence must be triaged rather than attributed. The
+enumeration is in the Keyman tree at
+`windows/src/test/manual-tests/GH-8064 - stuck-modifier-phantom-keydown/MODIFIER-PRODUCERS.md`.
 
 ### The fix, as it actually shipped
 
@@ -353,6 +392,16 @@ Unchanged by this work, and not to be implied otherwise.
 - **The ARM64 leg is unbuilt.** No ARM64 MSVC libraries on this machine. `keybd_shift.cpp` has no
   architecture guard and the new declaration sits outside the `_WIN64` region, so it should compile;
   **unverified**. CI or a machine with the ARM64 toolset must confirm.
+- **The on-screen keyboard can strand a modifier, and is not fixed.** Three producer paths came back
+  `UNMITIGATED` from the G3 audit, two of them in `engine/keyman/viskbd`. Issues are drafted but not
+  filed, so **FR-011 is unsatisfied and prevention must not be described as complete**. A fix for two
+  of the three is landed **untested** (`c1a7fa7992`) because Delphi is not installed here; the
+  `SetLRShift` chirality collapse is not addressed at all. Needs a machine with Delphi.
+- **The OSK findings are source-derived, not observed.** A scripted attempt to click OSK keys could
+  not establish a positive control that the clicks landed, so its null result is not evidence either
+  way. Each finding carries its minimal reproduction.
+- **`keyboard_ll_identifier` cannot be built here.** It is Delphi with no committed binary, and it is
+  the wire logger that supplies the second half of the manual test's FAIL oracle.
 - **What stalls keyman.exe's main thread in the field** — [`TODO.md`](TODO.md) **I3**. The fix makes
   the consequence harmless. It does not explain the cause. Ross's focus-change observation is still
   the best lead.

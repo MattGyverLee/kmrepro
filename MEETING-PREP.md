@@ -117,7 +117,8 @@ requests, so lead with the review and keep the questions that are still open.
 2. **Review the branch.** `fix/windows/8064-reconcile-modifier-cache`, four commits off upstream
    `master` @ `deeff0456f`: the defect characterised in the `keyman32` gtest suite, the Cache A fix
    ([TODO][todo] **D1**), a `build.sh` for [`fakefreeze`][ff] ([TEST-PLAN.md] **P0**), and a manual
-   test. `test:x86` 19/19, `test:x64` 18/18, both engine DLLs link clean; production diff is 64
+   test. `test:x86` 19/19, `test:x64` 18/18 — 33/33 and 32/32 after the follow-on
+   branch — both engine DLLs link clean; production diff is 64
    lines across 3 files. Full record in [`IN-TREE.md`](IN-TREE.md).
    - Volunteer the three judgement calls rather than waiting to be asked: registering
      `:fakefreeze` puts it in CI's path and the narrower alternative is one line away; the ARM64 leg

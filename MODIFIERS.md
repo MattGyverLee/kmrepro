@@ -76,7 +76,8 @@ cache's six slots depend on it"*. **x86 only** — the enclosing region of
 `k32_lowlevelkeyboardhook.cpp` is `#ifndef _WIN64`, so the test is guarded the same
 way and compiles out of the x64 run rather than breaking its link. Landed on
 `fix/windows/8064-reconcile-modifier-cache`; `test:x86` 19/19,
-`test:x64` 18/18 ([`IN-TREE.md`](IN-TREE.md) §2).
+`test:x64` 18/18 at the fix commit, **33/33 and 32/32 after the follow-on**
+([`IN-TREE.md`](IN-TREE.md) §2).
 
 So the scope boundary is provable from code, not inferred:
 
@@ -910,7 +911,8 @@ Per direction on 2026-08-23, **superseded for Cache A on 2026-08-26**:
 - ~~**Stuck-modifier (Cache A) work — not being fixed in Keyman code yet.** Stays
   here as repro + analysis.~~ **The fix was written, tested and committed on
   2026-08-26** — `a26aa611b5` on `fix/windows/8064-reconcile-modifier-cache`,
-  `test:x86` 19/19 and `test:x64` 18/18, both engine DLLs linking clean; see
+  `test:x86` 19/19 and `test:x64` 18/18 (33/33 and 32/32 after the follow-on),
+  both engine DLLs linking clean; see
   [`IN-TREE.md`](IN-TREE.md) and `TODO.md` **D1**. This document keeps its job:
   repro + analysis, and the source of the argument. §3 is still the part to lead
   with — it is the mechanism, it is provable from code, and it explains the
