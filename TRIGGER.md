@@ -148,13 +148,16 @@ that does not return in time is bypassed and may be evicted. Keyman therefore
 **3a. The modifier post is NOT gated on a Keyman keyboard being active.**
 
 ```
-k32_lowlevelkeyboardhook.cpp:198-201   if (isModifierKey(vkCode) && flag_ShouldSerializeInput)
+k32_lowlevelkeyboardhook.cpp:198-202   if (isModifierKey(vkCode) && flag_ShouldSerializeInput)
                                          PostMessage(..., WM_KEYMAN_MODIFIER_EVENT, ...)
-k32_lowlevelkeyboardhook.cpp:233       if (... || !isKeymanKeyboardActive) -> pass through
+k32_lowlevelkeyboardhook.cpp:229-240   if (... || !isKeymanKeyboardActive) -> pass through
 ```
 
-The post at `:198` precedes the `isKeymanKeyboardActive` check at `:233` by 35
-lines and does not consult it. So the cache is updated for **every modifier
+The post at `:198` precedes the `isKeymanKeyboardActive` check at `:229` by 31
+lines and does not consult it (re-checked 2026-08-26 against upstream `master` @
+`deeff0456f`; the figures were `:233` and 35 lines and are corrected here — see
+[`IN-TREE.md`](IN-TREE.md) §3 C-7, which also records a *second* unguarded
+emitter above the pass-through, `PostVisualKeyboardModifierEvent` at `:186-188`). So the cache is updated for **every modifier
 keystroke on the machine**, regardless of which keyboard is active, while it is
 only *consumed* when a Keyman keyboard is active. This is why the bug can be
 charged invisibly on a Microsoft keyboard and fire on switching back — measured
@@ -177,7 +180,17 @@ the OS exactly once, at thread startup, and **never reconciled with the OS again
 for the lifetime of the process**. A missed KEYUP leaves the byte at `0x80`
 indefinitely.
 
-**5. The stale byte is then actively re-asserted on every keystroke.**
+**5. The stale byte is then actively re-asserted on every queued output batch.**
+
+> **Corrected 2026-08-26** — [`IN-TREE.md`](IN-TREE.md) §3 C-1. This said "on every
+> keystroke", which is too strong. `keybd_shift` has exactly two call sites in the
+> whole repository, both inside `PrepareInjectedInput`, whose only caller chain is
+> `ProcessQueuedKeyEvents()` <- `WndProc` under `msg == WM_USER`. So the re-press
+> happens whenever a Keyman rule produces output, not on every keystroke; plain
+> keystrokes travel the `WM_KEYMAN_KEY_EVENT` path and never touch `keybd_shift`.
+> The user-visible symptom is unchanged, because once the phantom KEYDOWN has
+> landed *those* plain replays arrive shifted — but do not put the stronger claim
+> in a PR.
 
 ```
 serialkeyeventserver.cpp:384-400   PrepareInjectedInput()
@@ -364,11 +377,23 @@ throughout. Three keyboards, one stimulus. The freeze is posted to keyman.exe on
 sequence, the timings, the load and the target window are identical in all arms.
 The only variable is which keyboard owns the keystrokes.
 
-| arm | keyboard | identity |
-|---|---|---|
-| US | Microsoft US English | `00000409` / `KBDUS.DLL` |
-| MSKLC | Microsoft Cameroon QWERTY 2017 | `a0000436` / `CAMQ2017.dll`, under `af` |
-| Keyman | Keyman Cameroon QWERTY | `sil_cameroon_qwerty`, TIP `{25C4EE49-…}` under `aal-Latn-CM` |
+| arm | keyboard | identity | required? |
+|---|---|---|---|
+| English | any non-Dvorak English QWERTY | US `00000409`, UK `00000809`, Australian `00000c09`, … — **this machine ran US** | **yes** |
+| MSKLC | Microsoft Cameroon QWERTY 2017 | `a0000436` / `CAMQ2017.dll`, under `af` | no |
+| Keyman | Keyman Cameroon QWERTY | `sil_cameroon_qwerty`, TIP `{25C4EE49-…}` under `aal-Latn-CM` | **yes** |
+
+**The load-bearing contrast is Keyman vs Microsoft, not Cameroon vs Cameroon.**
+The English arm supplies a Microsoft keyboard, and any English locale does the
+job — the cross-arm oracle only needs `abc` to type as `abc`. A *substituted*
+layout (Dvorak, US-International; high word `0xF0xx`) is refused rather than
+measured, because there `abc` is not `abc` and the oracle would silently lie.
+
+MSKLC adds the **same-layout** control, which is what separates "Keyman the
+engine" from "the Cameroon layout data". `kmproof.ps1` drops the arm when no
+`0x0436` layout is installed and says so; the two-arm run still attributes the
+wedge to Keyman, and its verdict states that the layout is not independently
+exonerated.
 
 ### The two keyboards are output-identical when working
 
@@ -378,18 +403,19 @@ Measured, not assumed:
 |---|---|---|
 | MSKLC | `U+0259 U+014B` | `abc` |
 | Keyman | `U+0259 U+014B` | `abc` |
-| US | `U+003B U+0065` — plain `;e` | `abc` |
+| English | `U+003B U+0065` — plain `;e` | `abc` |
 
 So any divergence under the trigger **cannot** be attributed to the layout. Note
-US emits *nothing* for RAlt+N: on a US layout RAlt is plain Alt, a menu
+an English layout emits *nothing* for RAlt+N: there RAlt is plain Alt, a menu
 accelerator, not AltGr. That is why the layout-agnostic `abc` / `ABC` oracle is
-required — it is the one measurement that is the same in all three arms.
+required — it is the one measurement that is the same in every arm, and the
+only one the English arm can carry.
 
 ### Candidate I (modifier released into a confirmed stall)
 
 | arm | trials | wedged |
 |---|---|---|
-| US | 10 | **0** |
+| English | 10 | **0** |
 | MSKLC | 10 (both oracles) | **0** |
 
 ### The charge test — the decisive result
@@ -414,7 +440,7 @@ So neither the switching nor the probe is responsible.
 - **MSKLC clean** kills "it's the layout" and kills "Windows dropped the KEYUP".
   Same layout, same OS, same stimulus; the Microsoft implementation — which
   relies on Windows' own modifier tracking — stayed correct throughout.
-- **US clean, and switch-stress clean** kill "the harness manufactures the
+- **English clean, and switch-stress clean** kill "the harness manufactures the
   phantom Shift". The identical injected keystrokes leave both Microsoft
   keyboards perfect.
 - **`mods=none` all through charging, `mods=LShift` only after switching to
@@ -432,7 +458,7 @@ trigger, once applying **nothing** while wedged, once after clearing.
 
 | arm | oracle | TRIGGER | WEDGED (nothing applied) | CLEARED |
 |---|---|---|---|---|
-| US | Ascii | CLEAN | **WEDGED** `ABC` | CLEAN |
+| English | Ascii | CLEAN | **WEDGED** `ABC` | CLEAN |
 | MSKLC | Ascii | CLEAN | **WEDGED** `ABC` | CLEAN |
 | MSKLC | Deadkey | CLEAN `əŋ` | **WEDGED** `:EŊ` | CLEAN `əŋ` |
 | Keyman | Ascii | **WEDGED** `ABC` | **WEDGED** `ABC` | CLEAN |
@@ -482,7 +508,7 @@ if (isModifierKey(hs->vkCode) && flag_ShouldSerializeInput) {
   PostMessage(..., WM_KEYMAN_MODIFIER_EVENT, hs->vkCode, ...);   // :201
 }
 ...
-// :233 — THIRTY-FIVE LINES LATER
+// :229 — THIRTY-ONE LINES LATER
 if (hs->dwExtraInfo != 0 || ... || !isKeymanKeyboardActive) {
   return_SendDebugExit(CallNextHookEx(...));                     // pass through
 }
@@ -490,7 +516,7 @@ if (hs->dwExtraInfo != 0 || ... || !isKeymanKeyboardActive) {
 
 The modifier post at **:198-201 is not gated on `isKeymanKeyboardActive`.** It is
 gated only on `isModifierKey()` and `flag_ShouldSerializeInput`. The
-`!isKeymanKeyboardActive` pass-through at **:233** happens afterwards, and only
+`!isKeymanKeyboardActive` pass-through at **:229** happens afterwards, and only
 affects *character* keys.
 
 Therefore **Keyman updates its cached modifier state for every modifier keystroke

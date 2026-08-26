@@ -16,47 +16,68 @@
     (d) something else on this machine is eating keystrokes
 
   This script rules (a)-(d) out by holding the stimulus constant and varying
-  ONLY the active keyboard, across three arms:
+  ONLY the active keyboard:
 
-    US      en-US / 00000409 / KBDUS.DLL         - Microsoft, no special chars
-    MSKLC   af    / a0000436 / CAMQ2017.dll      - Microsoft clone of the
-                                                   Cameroon layout
-    Keyman  aal-Latn-CM / TIP 0x2000 /
-            sil_cameroon_qwerty                  - Keyman
+    English  ANY non-Dvorak English QWERTY       - Microsoft, no special chars.
+             US 0x0409, UK 0x0809, Australian      REQUIRED.
+             0x0C09, Canadian, NZ, Irish ...
+    MSKLC    af / a0000436 / CAMQ2017.dll        - Microsoft clone of the
+                                                   Cameroon layout. OPTIONAL.
+    Keyman   aal-Latn-CM / TIP 0x2000 /
+             sil_cameroon_qwerty                 - Keyman. REQUIRED.
+
+  WHY THE ENGLISH ARM IS NOT US-SPECIFIC. Its job is to be a keyboard Keyman is
+  not driving, so a wedge appearing there would indict this harness rather than
+  Keyman. Which English locale supplies that is irrelevant - they all type 'abc'
+  as 'abc', which is the only thing the cross-arm oracle needs. A reviewer will
+  have one already. What IS rejected is a substituted layout (Dvorak,
+  US-International): those report a 0xF0xx high word and do not type 'abc' as
+  'abc', so the Ascii oracle would silently lie. See Resolve-Arm.
+
+  WHY MSKLC IS OPTIONAL. The load-bearing contrast is KEYMAN vs MICROSOFT, not
+  Cameroon vs Cameroon - and the English arm already supplies a Microsoft
+  keyboard. MSKLC adds a SAME-LAYOUT control, which is what separates "Keyman
+  the engine" from "the Cameroon layout data". Worth having, not worth blocking
+  a run over, and not something a reviewer can be expected to have installed.
+  When it is absent the script drops the arm, says so, and the verdict states
+  exactly what the missing control would have ruled out.
 
   The freeze stimulus (WM_KEYMAN_CONTROL cmd 20 -> keyman.exe) is posted on
-  EVERY arm, including the two Microsoft arms. keyman.exe is running throughout.
+  EVERY arm, including the Microsoft ones. keyman.exe is running throughout.
   That is deliberate and it is the whole point: the stall, the key sequence, the
-  timings and the target window are identical in all three arms. The only
-  variable is which keyboard owns the keystrokes. So:
+  timings and the target window are identical in every arm. The only variable is
+  which keyboard owns the keystrokes. So:
 
-    Keyman wedges + MSKLC does not  =>  kills (a) and (b): same layout, same
-                                        OS, different implementation, different
-                                        outcome.
-    US does not wedge               =>  kills (c) and (d): the harness's own
-                                        keystrokes do not produce a phantom
-                                        Shift by themselves.
+    Keyman wedges + English does not  =>  kills (c) and (d): the harness's own
+                                          keystrokes do not produce a phantom
+                                          Shift by themselves, and Windows does
+                                          not drop the KEYUP on its own.
+    Keyman wedges + MSKLC does not    =>  kills (a) and (b): same layout, same
+                                          OS, different implementation,
+                                          different outcome. Needs the optional
+                                          MSKLC arm.
 
   Expected mechanism, for reference: Keyman's low-level hook only swallows and
   re-injects keystrokes when a Keyman keyboard is active
   (k32_lowlevelkeyboardhook.cpp:229-240, !isKeymanKeyboardActive -> pass
-  through). On the two Microsoft arms Keyman never touches the keys, so it has
-  no cached modifier state to get wrong. The null result on those arms is
-  PREDICTED by the mechanism, not merely observed.
+  through). On the Microsoft arms Keyman never touches the keys, so it has no
+  cached modifier state to get wrong. The null result on those arms is PREDICTED
+  by the mechanism, not merely observed.
 
   TWO ORACLES
   -----------
   Deadkey  ';e' then RAlt+N.  CLEAN = U+0259 U+014B ("schwa eng")
                               WEDGED = U+0259 U+014A ("schwa CAPITAL eng")
            Sharp, and it also proves the layout is really doing its job. Valid
-           on the two Cameroon arms ONLY - US English cannot produce U+0259 at
+           on the Cameroon arms ONLY - no English layout can produce U+0259 at
            all, which is exactly why a second oracle is needed.
 
   Ascii    'a' 'b' 'c', no Shift sent.  CLEAN = 'abc'   WEDGED = 'ABC'
-           Layout-agnostic: those three keys are unshifted on all three arms, so
-           a phantom Shift shows up as 'ABC' whichever keyboard is active. This
-           is the oracle the cross-arm comparison actually rests on, because it
-           is the SAME measurement in all three arms.
+           Layout-agnostic: those three keys are unshifted on every arm, so a
+           phantom Shift shows up as 'ABC' whichever keyboard is active. This is
+           the oracle the cross-arm comparison actually rests on, because it is
+           the SAME measurement in every arm. It is also why a Dvorak-style
+           layout is refused rather than measured.
 
   Both oracles run on every arm. Which ones are trustworthy per arm is not
   assumed - it is established by a fingerprint step (below) and recorded.
@@ -74,7 +95,7 @@
 
   ARM ORDER
   ---------
-  Default order is US, MSKLC, Keyman - controls first, treatment last. The
+  Default order is English, MSKLC, Keyman - controls first, treatment last. The
   Keyman wedge is PERSISTENT (failure counts are strictly bimodal), so measuring
   the controls before it removes any chance of a leftover wedge colouring them. The script also records whether a wedge
   survived an arm switch.
@@ -102,9 +123,10 @@
 
   The full HKL matters, not just the langid: en-US carries two input methods on
   this machine (US 00000409 and Dvorak 00010409). Dvorak would silently break
-  the Ascii oracle, since 'abc' is not 'abc' on a Dvorak layout. The US arm
-  therefore requires the high word to be 0x0409 too, and an accidental landing
-  on Dvorak is rejected rather than measured.
+  the Ascii oracle, since 'abc' is not 'abc' on a Dvorak layout. The English arm
+  therefore requires an unsubstituted layout - high word not 0xF0xx, and its own
+  primary language English - so an accidental landing on Dvorak is rejected
+  rather than measured.
 
   SAFETY
   ------
@@ -121,18 +143,19 @@
   restart and doing that unattended would destroy the state worth looking at.
 
   USAGE
-    .\kmproof.ps1                                  # all three arms, 3 passes
+    .\kmproof.ps1                                  # every available arm, 3 passes
     .\kmproof.ps1 -FingerprintOnly                 # just show me the layouts
     .\kmproof.ps1 -Only I -Repeat 5                # the deterministic trigger
     .\kmproof.ps1 -SwitchMode Manual               # I will switch by hand
     .\kmproof.ps1 -Arms Keyman,MSKLC -LoadThreads 4
+    .\kmproof.ps1 -Arms English,Keyman             # two-arm run, no MSKLC needed
 #>
 [CmdletBinding()]
 param(
   [string]$TargetProcess = 'notepad',
 
   # Arm order is the run order. Controls before treatment by default.
-  [string[]]$Arms = @('US','MSKLC','Keyman'),
+  [string[]]$Arms = @('English','MSKLC','Keyman'),
 
   # Candidate trigger ids to run, e.g. -Only A,I . Empty = all.
   [string[]]$Only = @(),
@@ -161,7 +184,7 @@ param(
   [int]$ChargeTrials = 5,
 
   # Sweep mode: the shortest end-to-end demonstration, as an A/B/A.
-  #   phase TRIGGER - walk US -> MSKLC -> Keyman applying the trigger on each
+  #   phase TRIGGER - walk English -> MSKLC -> Keyman applying the trigger on each
   #   phase WEDGED  - walk the same three again, applying NOTHING, and read what
   #                   each keyboard emits while Keyman is wedged
   #   phase CLEARED - clear the wedge, then walk the three again
@@ -188,8 +211,11 @@ function Split-CommaArg([string[]]$v) {
 $Only = @((Split-CommaArg $Only) | ForEach-Object { $_.ToUpper() })
 $Arms = @(Split-CommaArg $Arms)
 
+# 'US' is accepted as an alias for the English control arm, which is no longer
+# US-specific. Any non-Dvorak English QWERTY serves.
+$Arms = @($Arms | ForEach-Object { if ($_ -eq 'US') { 'English' } else { $_ } })
 foreach ($a in $Arms) {
-  if ($a -notin @('US','MSKLC','Keyman')) { throw "unknown arm '$a' (expected US, MSKLC or Keyman)" }
+  if ($a -notin @('English','MSKLC','Keyman')) { throw "unknown arm '$a' (expected English (alias US), MSKLC or Keyman)" }
 }
 if ($LoadThreads -gt 6) { $LoadThreads = 6 }
 if ($TargetProcess -ne 'notepad' -and -not $IKnowClearFieldIsDestructive) {
@@ -227,6 +253,7 @@ public static class Kp {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
   [DllImport("user32.dll")] public static extern IntPtr GetKeyboardLayout(uint tid);
+  [DllImport("user32.dll")] public static extern int GetKeyboardLayoutList(int n, [Out] IntPtr[] list);
   [DllImport("user32.dll")] public static extern bool GetGUIThreadInfo(uint idThread, ref KpGuiThreadInfo gti);
   [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
   public delegate bool EnumWindowsProc(IntPtr h, IntPtr l);
@@ -356,14 +383,28 @@ function Get-FocusKeyboard {
 # comes back as a descriptive string rather than being coerced into an arm, so a
 # mis-switch can never be silently measured as a result.
 function Resolve-Arm([int64]$lang, [int64]$high) {
-  # Only the unsubstituted US layout has high word 0x0409. en-US's OTHER input
-  # method on this machine (Dvorak, preload d0010409 -> substitute 00010409)
-  # comes back as high word 0xF002: a substitution handle, NOT the 0x0001 you
-  # would guess from the layout id. Observed 2026-08-23. Any en-US that is not
-  # exactly 0x04090409 is therefore rejected rather than measured, because 'abc'
-  # is not 'abc' on Dvorak and the Ascii oracle would silently lie.
-  if ($lang -eq 0x0409 -and $high -eq 0x0409) { return 'US' }
-  if ($lang -eq 0x0409)                       { return ('en-US-not-plain-US-0x{0:X4}-REJECT' -f $high) }
+  # THE ENGLISH ARM IS ANY NON-DVORAK ENGLISH QWERTY, not specifically US.
+  # The arm's whole job is to be a keyboard Keyman is not driving, so that a
+  # wedge appearing there would indict this harness rather than Keyman. Which
+  # English locale supplies it is irrelevant: US 0x0409, UK 0x0809, Australian
+  # 0x0C09, Canadian 0x1009, NZ 0x1409, Irish 0x1809 and the rest all serve
+  # equally, and all type 'abc' as 'abc'.
+  #
+  # What DOES matter is that the layout is not substituted. A layout id whose
+  # high word is 0xF0xx is a SUBSTITUTION HANDLE, which is how Windows reports
+  # the alternates: US-Dvorak (preload d0010409 -> substitute 00010409) comes
+  # back as high word 0xF002, NOT the 0x0001 the layout id would suggest.
+  # Observed 2026-08-23. 'abc' is not 'abc' on Dvorak, so the Ascii oracle would
+  # silently lie; such a layout is REJECTED rather than measured. A plain layout
+  # reports its own language in the high word (US 0x04090409, UK 0x08090809).
+  $langPrimary = $lang -band 0x03FF
+  $highPrimary = $high -band 0x03FF
+  $highIsSubstituted = (($high -band 0xF000) -eq 0xF000)
+  if ($langPrimary -eq 0x09 -and -not $highIsSubstituted -and $highPrimary -eq 0x09) { return 'English' }
+  if ($langPrimary -eq 0x09) {
+    # An English locale carrying an alternate layout. Named, not coerced.
+    return ('en-substituted-layout-0x{0:X4}-REJECT' -f $high)
+  }
   if ($lang -eq 0x0436)                       { return 'MSKLC' }
   if ($lang -eq 0x2000)                       { return 'Keyman' }
   if ($lang -eq 0x046A)                       { return 'Keyman-Yoruba' }
@@ -377,9 +418,30 @@ function Format-Keyboard($k) {
 }
 
 $ARM_LABEL = @{
-  US     = 'US English - Microsoft, 00000409 / KBDUS.DLL'
-  MSKLC  = 'Cameroon QWERTY 2017 - Microsoft MSKLC, a0000436 / CAMQ2017.dll, under af'
-  Keyman = 'Cameroon QWERTY - Keyman sil_cameroon_qwerty, TIP {25C4EE49-...} under aal-Latn-CM'
+  English = 'any non-Dvorak English QWERTY - US, UK, Australian, Canadian, NZ, Irish ...'
+  MSKLC   = 'Cameroon QWERTY 2017 - Microsoft MSKLC, a0000436 / CAMQ2017.dll, under af (OPTIONAL)'
+  Keyman  = 'Cameroon QWERTY - Keyman sil_cameroon_qwerty, TIP {25C4EE49-...} under aal-Latn-CM'
+}
+
+# ---- which arms this machine can actually supply --------------------------
+# Enumerates the installed HKLs rather than discovering an arm is missing by
+# burning $SwitchTries Win+Space presses against a keyboard that is not there.
+# MSKLC is optional by design: see the ARMS note in the header.
+function Get-InstalledArms {
+  $n = [Kp]::GetKeyboardLayoutList(0, $null)
+  $buf = New-Object IntPtr[] $n
+  [void][Kp]::GetKeyboardLayoutList($n, $buf)
+  $found = @{}
+  $detail = @()
+  foreach ($h in $buf) {
+    # 0xFFFFFFFF is an Int32 literal in PowerShell and parses as -1, which makes
+    # the mask a no-op and prints sign-extended handles. 0xFFFFFFFFL is Int64.
+    $v = $h.ToInt64() -band 0xFFFFFFFFL
+    $arm = Resolve-Arm ($v -band 0xFFFF) (($v -shr 16) -band 0xFFFF)
+    $detail += ('0x{0:X8} -> {1}' -f $v, $arm)
+    if ($arm -in @('English','MSKLC','Keyman')) { $found[$arm] = $true }
+  }
+  return [pscustomobject]@{ Arms = @($found.Keys); Detail = $detail }
 }
 
 # ---- target window + text readback ----------------------------------------
@@ -462,7 +524,7 @@ function WaitForFreeze([int]$timeoutMs = 3000) {
 # accumulated buffer and scores OTHER regardless of which keyboard is active.
 #
 # That artifact produced a bogus "[CLAIM FAILS] a Microsoft keyboard was also
-# not-CLEAN" verdict in the 10:15 sweep - US and MSKLC were fine; the readback
+# not-CLEAN" verdict in the 10:15 sweep - English and MSKLC were fine; the readback
 # was broken. Any keystroke-based clear is unusable in exactly the state this
 # script exists to measure.
 #
@@ -701,7 +763,43 @@ try {
     Say '[WARN] keyman.exe TApplication window not found - the freeze stimulus will be a NO-OP on every arm.'
     Say '       Every result below would then be a no-freeze control. Fix this before quoting any of it.'
   }
-  Say ("arms  = {0}" -f ($Arms -join ' -> '))
+  # MSKLC IS OPTIONAL. The load-bearing contrast is Keyman's engine against a
+  # keyboard Windows implements itself; the English arm already supplies that.
+  # MSKLC-Cameroon adds a SAME-LAYOUT control, which separates "Keyman's engine"
+  # from "the Cameroon layout data". Valuable, but not required, and not
+  # something a reviewer can be expected to have installed. Absent, the run
+  # continues on two arms and the verdict says exactly what the missing arm
+  # would have ruled out.
+  $installed = Get-InstalledArms
+  Say ("installed input methods: {0}" -f ($installed.Detail -join '; '))
+  if ($Arms -contains 'MSKLC' -and $installed.Arms -notcontains 'MSKLC') {
+    $Arms = @($Arms | Where-Object { $_ -ne 'MSKLC' })
+    Say '[NOTE] no Microsoft Cameroon (0x0436) layout installed - dropping the MSKLC arm.'
+    Say '       The run continues on English + Keyman. That still attributes the wedge to'
+    Say '       Keyman; what it cannot do on its own is separate Keyman the ENGINE from the'
+    Say '       Cameroon layout it loads. Install the MSKLC layout to recover that control.'
+  }
+  if ($Arms -contains 'English' -and $installed.Arms -notcontains 'English') {
+    Say '[WARN] no plain (non-substituted) English QWERTY found among the installed layouts.'
+    Say '       Any English locale will do - US, UK, Australian, Canadian, NZ, Irish - but a'
+    Say '       Dvorak/US-International style alternate is rejected, because the Ascii oracle'
+    Say '       assumes QWERTY. Add one as an input method, or the control arm cannot run.'
+  }
+  if ($installed.Arms -notcontains 'Keyman') {
+    Say '[WARN] no Keyman TIP (langid 0x2000) found. The treatment arm cannot run.'
+    Say '       Install the sil_cameroon_qwerty keyboard in Keyman and re-run.'
+  }
+  $script:ARMS_ALL = @('English','MSKLC','Keyman') | Where-Object { $Arms -contains $_ }
+  Say ("arms  = {0}" -f ($ARMS_ALL -join ' -> '))
+
+  # -SwitchStress and -ChargeTest both need a NON-KEYMAN keyboard to switch away
+  # to. MSKLC is the better choice when it exists, because it can express the
+  # Deadkey oracle and so proves the Microsoft side stayed perfect in the
+  # sharpest possible way. Without it the English arm does the same job on the
+  # Ascii oracle - a phantom Shift still shows as 'ABC' - so neither mode has to
+  # be blocked. The oracle in use is recorded on every row.
+  $script:AWAY_ARM    = if ($ARMS_ALL -contains 'MSKLC') { 'MSKLC' } else { 'English' }
+  $script:AWAY_ORACLE = if ($AWAY_ARM -eq 'MSKLC') { 'Deadkey' } else { 'Ascii' }
   Say  'order = controls first, treatment last (the Keyman wedge is persistent)'
   Say ("log   = {0}" -f $log)
   Say ''
@@ -729,17 +827,18 @@ try {
     Say '================ SWITCH-STRESS MODE ================'
     Say '  No freeze is EVER posted in this mode. The only stimulus is switching keyboards.'
     Say '  If Keyman wedges here, the switch is a trigger in its own right.'
+    Say ("  Switching away to the {0} arm." -f $AWAY_ARM)
     Say ''
     $wedgeAt = 0
     for ($c = 1; $c -le $SwitchStress; $c++) {
-      $k1 = Switch-ToArm 'MSKLC'
-      if ($k1.Arm -ne 'MSKLC')  { Say ("  [ABORT] cycle {0} could not reach MSKLC" -f $c); break }
+      $k1 = Switch-ToArm $AWAY_ARM
+      if ($k1.Arm -ne $AWAY_ARM)  { Say ("  [ABORT] cycle {0} could not reach {1}" -f $c,$AWAY_ARM); break }
       $k2 = Switch-ToArm 'Keyman'
       if ($k2.Arm -ne 'Keyman') { Say ("  [ABORT] cycle {0} could not reach Keyman" -f $c); break }
       $p = Probe 'Deadkey'
       Say ("  cycle {0,-3} back on Keyman -> {1,-9} ({2}) mods={3}" -f $c,$p.State,$p.Cp,$p.Mods)
       $results += [pscustomobject]@{
-        Arm='Keyman'; Pass=$c; Candidate='SWITCH'; Desc='Win+Space to MSKLC and back, NO freeze'; Oracle='Deadkey'
+        Arm='Keyman'; Pass=$c; Candidate='SWITCH'; Desc=("Win+Space to " + $AWAY_ARM + ' and back, NO freeze'); Oracle='Deadkey'
         State=$p.State; Cp=$p.Cp; Text=$p.Text; Mods=$p.Mods
         LangId=('0x{0:X4}' -f $k2.LangId); Hkl=('0x{0:X8}' -f $k2.Hkl)
         ArmConfirmed=$true; Valid=($p.State -eq 'CLEAN' -or $p.State -eq 'WEDGED'); LoadThreads=$LoadThreads
@@ -778,7 +877,7 @@ try {
   # function-local copy).
   function Invoke-SweepPass([string]$label, [int]$triggers) {
     $rows = @()
-    foreach ($arm in @('US','MSKLC','Keyman')) {
+    foreach ($arm in $ARMS_ALL) {
       $k = Switch-ToArm $arm
       if ($k.Arm -ne $arm) {
         Say ("  [{0,-7}] {1,-7} SKIP - could not switch (focus thread says {2})" -f $label,$arm,$k.Arm)
@@ -792,9 +891,10 @@ try {
         Ku 0xA0; Start-Sleep -Milliseconds 400
         Start-Sleep -Milliseconds 5200          # let the 5s freeze finish
       }
-      # US cannot express the deadkey oracle at all; the other two can.
+      # An English layout cannot express the deadkey oracle at all - it cannot
+      # produce U+0259. The Cameroon arms can.
       $oracles = @('Ascii')
-      if ($arm -ne 'US') { $oracles = @('Ascii','Deadkey') }
+      if ($arm -ne 'English') { $oracles = @('Ascii','Deadkey') }
       $what = 'observe only'
       if ($triggers -gt 0) { $what = ("{0} trigger(s)" -f $triggers) }
       foreach ($o in $oracles) {
@@ -884,9 +984,9 @@ try {
     # ---- matrix -----------------------------------------------------------
     Say 'SWEEP MATRIX'
     Say ('  {0,-7} {1,-8} {2,-11} {3,-11} {4,-11}' -f 'arm','oracle','TRIGGER','WEDGED','CLEARED')
-    foreach ($arm in @('US','MSKLC','Keyman')) {
+    foreach ($arm in $ARMS_ALL) {
       $oracles = @('Ascii')
-      if ($arm -ne 'US') { $oracles = @('Ascii','Deadkey') }
+      if ($arm -ne 'English') { $oracles = @('Ascii','Deadkey') }
       foreach ($o in $oracles) {
         Say ('  {0,-7} {1,-8} {2,-11} {3,-11} {4,-11}' -f $arm,$o,
               (Get-SweepState $p1 $arm $o), (Get-SweepState $p2 $arm $o), (Get-SweepState $p3 $arm $o))
@@ -902,9 +1002,9 @@ try {
     # LShift KEYDOWN with no matching KEYUP, and is evidence FOR the diagnosis,
     # not against it. Only the TRIGGER phase can refute Keyman-only causation.
     Say 'SWEEP VERDICT'
-    $msTrigger = @($p1 | Where-Object { ($_.Arm -eq 'US' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
-    $msWedged  = @($p2 | Where-Object { ($_.Arm -eq 'US' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
-    $msCleared = @($p3 | Where-Object { ($_.Arm -eq 'US' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
+    $msTrigger = @($p1 | Where-Object { ($_.Arm -eq 'English' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
+    $msWedged  = @($p2 | Where-Object { ($_.Arm -eq 'English' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
+    $msCleared = @($p3 | Where-Object { ($_.Arm -eq 'English' -or $_.Arm -eq 'MSKLC') -and $_.State -ne 'CLEAN' })
 
     if ($kmAfter1 -eq 'CLEAN') {
       Say ("  [NOT TRIGGERED] one pass with {0} trigger(s) per keyboard did not wedge Keyman." -f $SweepTrials)
@@ -914,8 +1014,13 @@ try {
       foreach ($r in $msTrigger) { Say ('      {0} {1} {2} -> {3} ({4})' -f $r.Phase,$r.Arm,$r.Oracle,$r.State,$r.Cp) }
       Say  '      That would mean this is not Keyman-specific. Investigate before quoting.'
     } else {
-      Say  '  [CAUSED BY KEYMAN ONLY] Under the identical trigger, US and MSKLC stayed CLEAN'
-      Say  '      while Keyman wedged. The layout is not at fault and neither is Windows.'
+      Say ('  [CAUSED BY KEYMAN ONLY] Under the identical trigger, {0} stayed CLEAN' -f (($ARMS_ALL | Where-Object { $_ -ne 'Keyman' }) -join ' and '))
+      Say  '      while Keyman wedged. Windows is not at fault.'
+      if ($ARMS_ALL -notcontains 'MSKLC') {
+        Say  '      Without the MSKLC arm this does not separately exonerate the Cameroon LAYOUT.'
+      } else {
+        Say  '      Nor is the layout: MSKLC runs the same layout and stayed clean.'
+      }
       if ($msWedged.Count -gt 0) {
         Say  ''
         Say  '  [BUT THE DAMAGE IS MACHINE-WIDE] Once wedged, the Microsoft keyboards are'
@@ -960,17 +1065,23 @@ try {
   # found corrupted the moment its keyboard becomes active again.
   if ($ChargeTest -gt 0) {
     Say '================ CHARGE TEST ================'
-    Say ("  Per rep: {0} x candidate I on MSKLC (Keyman keyboard INACTIVE), then switch to Keyman and probe." -f $ChargeTrials)
+    Say ("  Per rep: {0} x candidate I on {1} (Keyman keyboard INACTIVE), then switch to Keyman and probe." -f $ChargeTrials,$AWAY_ARM)
+    Say ("  Charging-arm oracle: {0}." -f $AWAY_ORACLE)
+    if ($AWAY_ARM -ne 'MSKLC') {
+      Say  '  NOTE: no MSKLC layout installed, so the charging arm is English on the Ascii'
+      Say  '        oracle. That still shows a phantom Shift as ABC, which is what this mode'
+      Say  '        needs; it just cannot also demonstrate correct Cameroon output meanwhile.'
+    }
     Say  '  Paired control is -SwitchStress: identical switches, no freeze.'
     Say ''
     $charged = 0; $reps = 0; $msklcDirty = 0; $msklcTrials = 0
     for ($r = 1; $r -le $ChargeTest; $r++) {
-      $k1 = Switch-ToArm 'MSKLC'
-      if ($k1.Arm -ne 'MSKLC') { Say ("  [ABORT] rep {0} could not reach MSKLC" -f $r); break }
+      $k1 = Switch-ToArm $AWAY_ARM
+      if ($k1.Arm -ne $AWAY_ARM) { Say ("  [ABORT] rep {0} could not reach {1}" -f $r,$AWAY_ARM); break }
 
-      $pre = Probe 'Deadkey'
+      $pre = Probe $AWAY_ORACLE
       if ($pre.State -ne 'CLEAN') {
-        Say ("  rep {0}: MSKLC does not start clean ({1}) - rep abandoned, not counted" -f $r,$pre.Cp)
+        Say ("  rep {0}: {1} does not start clean ({2}) - rep abandoned, not counted" -f $r,$AWAY_ARM,$pre.Cp)
         continue
       }
 
@@ -981,12 +1092,12 @@ try {
         $live = WaitForFreeze 3000
         if (-not $live) { Say ("      rep {0} trial {1}: [WARN] freeze never confirmed - not a valid charging trial" -f $r,$t) }
         Ku 0xA0; Start-Sleep -Milliseconds 400
-        $m = Probe 'Deadkey'
+        $m = Probe $AWAY_ORACLE
         $msklcTrials++
         if ($m.State -ne 'CLEAN') { $dirtyHere++; $msklcDirty++ }
-        Say ("      rep {0} charge trial {1} on MSKLC -> {2,-9} ({3}) mods={4}" -f $r,$t,$m.State,$m.Cp,$m.Mods)
+        Say ("      rep {0} charge trial {1} on {2} -> {3,-9} ({4}) mods={5}" -f $r,$t,$AWAY_ARM,$m.State,$m.Cp,$m.Mods)
         $results += [pscustomobject]@{
-          Arm='MSKLC'; Pass=$r; Candidate='I-charge'; Desc='candidate I while Keyman keyboard INACTIVE'; Oracle='Deadkey'
+          Arm=$AWAY_ARM; Pass=$r; Candidate='I-charge'; Desc='candidate I while Keyman keyboard INACTIVE'; Oracle=$AWAY_ORACLE
           State=$m.State; Cp=$m.Cp; Text=$m.Text; Mods=$m.Mods
           LangId=('0x{0:X4}' -f $k1.LangId); Hkl=('0x{0:X8}' -f $k1.Hkl)
           ArmConfirmed=$true; Valid=($m.State -eq 'CLEAN' -or $m.State -eq 'WEDGED'); LoadThreads=$LoadThreads
@@ -1000,8 +1111,8 @@ try {
       $reps++
       $verdict = 'clean'
       if ($post.State -ne 'CLEAN') { $verdict = '*** ' + $post.State + ' ***'; $charged++ }
-      Say ("  rep {0}: MSKLC dirty {1}/{2} during charging  ->  Keyman on return: {3} ({4}) mods={5}" -f `
-            $r,$dirtyHere,$ChargeTrials,$verdict,$post.Cp,$post.Mods)
+      Say ("  rep {0}: {6} dirty {1}/{2} during charging  ->  Keyman on return: {3} ({4}) mods={5}" -f `
+            $r,$dirtyHere,$ChargeTrials,$verdict,$post.Cp,$post.Mods,$AWAY_ARM)
       $results += [pscustomobject]@{
         Arm='Keyman'; Pass=$r; Candidate='I-fire'; Desc='first probe after switching back to Keyman'; Oracle='Deadkey'
         State=$post.State; Cp=$post.Cp; Text=$post.Text; Mods=$post.Mods
@@ -1208,11 +1319,11 @@ try {
   Say ('Trials: {0} recorded, {1} valid, {2} discarded' -f $results.Count, $valid.Count, ($results.Count - $valid.Count))
   Say ''
   Say 'Wedge rate by arm and candidate (valid trials only, Ascii oracle - the comparable one):'
-  Say ('  {0,-10} {1,-8} {2,-8} {3,-8} {4}' -f 'candidate','US','MSKLC','Keyman','description')
+  Say ('  {0,-10} {1}' -f 'candidate', (($ARMS_ALL | ForEach-Object { '{0,-8}' -f $_ }) -join ' ') + ' description')
   $cands = @($CANDIDATES | Where-Object { $Only.Count -eq 0 -or $Only -contains $_.Id })
   foreach ($c in $cands) {
     $cells = @{}
-    foreach ($arm in @('US','MSKLC','Keyman')) {
+    foreach ($arm in $ARMS_ALL) {
       $set = @($valid | Where-Object { $_.Arm -eq $arm -and $_.Candidate -eq $c.Id -and $_.Oracle -eq 'Ascii' })
       if ($set.Count -eq 0) { $cells[$arm] = '  -  ' }
       else {
@@ -1220,16 +1331,17 @@ try {
         $cells[$arm] = ('{0}/{1}' -f $w, $set.Count)
       }
     }
-    Say ('  {0,-10} {1,-8} {2,-8} {3,-8} {4}' -f $c.Id, $cells['US'], $cells['MSKLC'], $cells['Keyman'], $c.Desc)
+    Say ('  {0,-10} {1}' -f $c.Id, (($ARMS_ALL | ForEach-Object { '{0,-8}' -f $cells[$_] }) -join ' ') + ' ' + $c.Desc)
   }
   Say ''
 
   if ($fingerprints | Where-Object { $_.DeadkeyLayoutOk }) {
+    $dkArms = @($ARMS_ALL | Where-Object { $_ -ne 'English' })
     Say 'Same table, Deadkey oracle (Cameroon arms only - sharper, catches NO-OUTPUT too):'
-    Say ('  {0,-10} {1,-8} {2,-8} {3}' -f 'candidate','MSKLC','Keyman','description')
+    Say ('  {0,-10} {1}' -f 'candidate', (($dkArms | ForEach-Object { '{0,-8}' -f $_ }) -join ' ') + ' description')
     foreach ($c in $cands) {
       $cells = @{}
-      foreach ($arm in @('MSKLC','Keyman')) {
+      foreach ($arm in $dkArms) {
         $set = @($valid | Where-Object { $_.Arm -eq $arm -and $_.Candidate -eq $c.Id -and $_.Oracle -eq 'Deadkey' })
         if ($set.Count -eq 0) { $cells[$arm] = '  -  ' }
         else {
@@ -1237,7 +1349,7 @@ try {
           $cells[$arm] = ('{0}/{1}' -f $w, $set.Count)
         }
       }
-      Say ('  {0,-10} {1,-8} {2,-8} {3}' -f $c.Id, $cells['MSKLC'], $cells['Keyman'], $c.Desc)
+      Say ('  {0,-10} {1}' -f $c.Id, (($dkArms | ForEach-Object { '{0,-8}' -f $cells[$_] }) -join ' ') + ' ' + $c.Desc)
     }
     Say ''
   }
@@ -1248,24 +1360,37 @@ try {
     $w   = @($set | Where-Object { $_.State -eq 'WEDGED' }).Count
     return [pscustomobject]@{ Arm=$arm; N=$set.Count; Wedged=$w }
   }
-  $sUS = ArmWedges 'US'; $sMS = ArmWedges 'MSKLC'; $sKM = ArmWedges 'Keyman'
-  Say ('Arm totals (Ascii): US {0}/{1}   MSKLC {2}/{3}   Keyman {4}/{5}' -f $sUS.Wedged,$sUS.N,$sMS.Wedged,$sMS.N,$sKM.Wedged,$sKM.N)
+  $sEN = ArmWedges 'English'; $sMS = ArmWedges 'MSKLC'; $sKM = ArmWedges 'Keyman'
+  Say ('Arm totals (Ascii): English {0}/{1}   MSKLC {2}/{3}   Keyman {4}/{5}' -f $sEN.Wedged,$sEN.N,$sMS.Wedged,$sMS.N,$sKM.Wedged,$sKM.N)
   Say ''
 
-  $armsRun = @('US','MSKLC','Keyman') | Where-Object { (ArmWedges $_).N -gt 0 }
-  $missing = @('US','MSKLC','Keyman') | Where-Object { (ArmWedges $_).N -eq 0 }
+  # MSKLC is optional, so it is not counted as missing when it was never asked
+  # for. English and Keyman are the two the claim actually rests on.
+  $required = @('English','Keyman')
+  $missing  = @($required | Where-Object { (ArmWedges $_).N -eq 0 })
+  $haveMS   = ((ArmWedges 'MSKLC').N -gt 0)
 
   Say 'VERDICT'
   if ($missing.Count -gt 0) {
     Say ('  [INCONCLUSIVE] no valid trials on: {0}' -f ($missing -join ', '))
-    Say  '  A three-arm claim needs all three arms. Do not quote this run in TRIGGER.md.'
+    Say  '  The claim needs a Keyman arm and a non-Keyman control arm. Do not quote this run.'
   }
-  elseif ($sKM.Wedged -gt 0 -and $sMS.Wedged -eq 0 -and $sUS.Wedged -eq 0) {
+  elseif ($sKM.Wedged -gt 0 -and $sMS.Wedged -eq 0 -and $sEN.Wedged -eq 0) {
     Say  '  [PROOF] The wedge appeared ONLY on the Keyman arm.'
-    Say ('          Keyman {0}/{1} wedged; MSKLC 0/{2}; US 0/{3}.' -f $sKM.Wedged,$sKM.N,$sMS.N,$sUS.N)
-    Say  '          MSKLC clean rules out the layout and rules out Windows dropping the KEYUP:'
-    Say  '          same layout, same OS, same stimulus, different implementation.'
-    Say  '          US clean rules out this harness manufacturing the phantom Shift.'
+    if ($haveMS) {
+      Say ('          Keyman {0}/{1} wedged; MSKLC 0/{2}; English 0/{3}.' -f $sKM.Wedged,$sKM.N,$sMS.N,$sEN.N)
+      Say  '          MSKLC clean rules out the layout and rules out Windows dropping the KEYUP:'
+      Say  '          same layout, same OS, same stimulus, different implementation.'
+      Say  '          English clean rules out this harness manufacturing the phantom Shift.'
+    } else {
+      Say ('          Keyman {0}/{1} wedged; English 0/{2}. TWO-ARM RUN - no MSKLC layout installed.' -f $sKM.Wedged,$sKM.N,$sEN.N)
+      Say  '          English clean rules out this harness manufacturing the phantom Shift, and'
+      Say  '          rules out Windows dropping the KEYUP on its own: same OS, same stimulus,'
+      Say  '          same injected events, no wedge.'
+      Say  '          WHAT THIS RUN DOES NOT SETTLE: with no Microsoft build of the SAME layout'
+      Say  '          to compare against, it cannot separate Keyman the ENGINE from the Cameroon'
+      Say  '          layout data it loads. Install the MSKLC Cameroon layout for that control.'
+    }
   }
   elseif ($sKM.Wedged -eq 0) {
     Say  '  [NOT REPRODUCED] Keyman did not wedge in this run. Nothing is proven either way.'
@@ -1273,9 +1398,9 @@ try {
     Say  '                   Keyman main thread starved at the wrong instant.'
   }
   else {
-    Say  '  [CLAIM FAILS] the wedge appeared on a Microsoft arm too.'
+    Say  '  [CLAIM FAILS] the wedge appeared on a non-Keyman arm too.'
     if ($sMS.Wedged -gt 0) { Say ('                MSKLC {0}/{1} - so this is NOT Keyman-specific. TRIGGER.md must be corrected.' -f $sMS.Wedged,$sMS.N) }
-    if ($sUS.Wedged -gt 0) { Say ('                US {0}/{1} - the HARNESS is suspect; its own SendInput may be creating the phantom Shift.' -f $sUS.Wedged,$sUS.N) }
+    if ($sEN.Wedged -gt 0) { Say ('                English {0}/{1} - the HARNESS is suspect; its own SendInput may be creating the phantom Shift.' -f $sEN.Wedged,$sEN.N) }
   }
   Say ''
 

@@ -1,13 +1,32 @@
 # Test plan — porting these findings into Keyman
 
-**Plan, plus draft code that has never been compiled.** No Keyman code change
-is proposed here as a landed patch; the blocks in "The code" and "The minimal
-seams" below are drafts pending in-place testing.
+**Partly executed, as of 2026-08-26.** [`IN-TREE.md`](IN-TREE.md) is the record of
+what was compiled, run and committed, and it is the authority where the two
+disagree. Landed on `fix/windows/8064-reconcile-modifier-cache` (four commits, 671
+insertions across 9 files): **P0** — `fakefreeze/build.sh`, registered in
+`support/build.sh`; **P2** — `tests/keybd_shift.tests.cpp`; **S3** —
+`ReconcileModifierCache`, which *is* the Cache A fix D1, 64 lines across 3 files of
+which roughly 40 are comment; and the **manual test**, as a README-driven procedure
+over existing tools rather than the new Delphi app §4 proposed. Measured: **19/19
+pass on `test:x86`, 18/18 on `test:x64`** (one `DISABLED_` by design), and both
+`keyman32.dll` and `keyman64.dll` link with 0 warnings. **P1** was probed — it
+compiles and passes — and deliberately not landed. So the blocks below are no
+longer uniformly drafts; each now carries its own standing, and the drafted `T-P6`
+and `T-S4` have been **corrected** for a leak-detector finding that only compiling
+them could surface.
+
+> **[WARN] What genuinely remains undrafted or unexecuted:** **S1** and **S2** —
+> both seams untouched, and `S2`'s tests `T-S5`-`T-S7` with them; **P3** — the
+> Cache B / Caps Lock tests; **P4** — the Delphi app, superseded in *form* but
+> still worth building (§4); **P5** — the lifecycle doc. **S0 is retired**, on
+> measurement. And the **ARM64 leg is unbuilt**: there are no ARM64 MSVC libraries
+> on this machine.
+
 Before talking to the team, read **[MEETING-PREP.md](MEETING-PREP.md)** — this is [#8064][i8064], it is Ross's issue, and he has already found much of it independently.
 
 Mechanism: [MODIFIERS.md]. Three-arm proof: [TRIGGER.md]. Log: [TODO.md]. Harness hazards: [HAZARDS.md]. Ross's field evidence and the closure path: [issue-8064/](issue-8064/README.md).
 
-Code refs are `keymanapp/keyman` @ `a70538106c`, paths under `windows/src/engine/keyman32/`.
+Code refs are `keymanapp/keyman` @ `a70538106c`, paths under `windows/src/engine/keyman32/`. Every code claim below was re-checked against `origin/master` @ `deeff0456f`, the base of the landed branch; **all of them held**. The corrections that came out of that pass are [`IN-TREE.md`](IN-TREE.md) §3, and the four that change how the work must be argued are not restated here.
 
 ---
 
@@ -31,7 +50,36 @@ For *this* bug that key must be a modifier **KEYUP** — the event whose loss st
 
 **The stimulus already ships in Keyman.** [`windows/src/support/fakefreeze/`][ff], mcdurdin 2025-11-17 ([`711541be60`][ff-commit]) — *"pause for 5 seconds to force Windows to silently uninstall the low level keyboard hook."* Handler is ungated: [`UfrmKeyman7Main.pas:868`][fz-handler] is a bare `Sleep(5000)`. No debug flag, no special build.
 
-> **P0 — `fakefreeze` has no `build.sh`**, so `./windows/build.sh` never produces it. Siblings [`wow64kbd`][w64], `etl2log`, `oskbulkrenderer`, `texteditor` do. This is the highest-value item here.
+> **P0 — DONE**, `5274fec612` *chore(windows): add a build entry point for the fakefreeze support tool*.
+> `fakefreeze` had no `build.sh`, so `./windows/build.sh` never produced it, while siblings
+> [`wow64kbd`][w64], `etl2log`, `oskbulkrenderer`, `texteditor` do. It was the highest-value item
+> here and it is now registered — `:fakefreeze` in `support/build.sh`, verified by running
+> `./windows/src/support/build.sh --debug test:fakefreeze` → exit 0, not by reading a log.
+>
+> Modelled on **`etl2log`**, not on [`wow64kbd`][w64] as this plan originally proposed:
+> `wow64kbd/build.sh` declares outputs under `bin/Win32/...` that its vcxproj never produces, which
+> is a latent bug and a bad template. `etl2log` is registered, C++, and sets `OutDir`/`IntDir` — and
+> `fakefreeze.vcxproj` had neither, so MSBuild wrote to `Debug/` and `x64/Debug/`, paths
+> `windows/src/.gitignore` does **not** cover. Setting them the `etl2log` way puts every output
+> under an already-ignored path. Full reasoning, including why the `test`-action mismatch is benign
+> in `--builder-child` mode, is [`IN-TREE.md`](IN-TREE.md) §5.
+
+### The build environment, now established
+
+Every earlier document in this repo was written against a checkout in which **not one line had been
+through a compiler**. That is no longer true, and it was never "no toolchain" — it was two solvable
+blockers. Full detail in [`IN-TREE.md`](IN-TREE.md) §1; the load-bearing facts:
+
+| fact | standing |
+|---|---|
+| **The [gtest suite][vcx] builds and runs** | MEASURED 2026-08-26. Baseline on an unmodified tree: **7 tests from 3 test cases, 7 PASSED**, on both `test:x86` and `test:x64` |
+| Blocker 1 — NuGet | the gtest package was restored nowhere. One-time fix: `msbuild.exe tests/keyman32.tests.vcxproj -t:Restore -p:RestorePackagesConfig=true`. No standalone `nuget.exe` needed |
+| Blocker 2 — `configure` | **do not run `build.sh configure`.** It pulls `@/core:win`, which builds core for arm64 and dies `LNK1104: cannot open file 'libcpmtd.lib'` — `VC\Tools\MSVC\14.44.35207\lib\` holds only `x86`, `x64`, `onecore`. `test:x86` and `test:x64` trigger no such dependency and need no `configure`, which is why the [Verification](#verification) commands below drop it |
+| Delphi | **not installed** on the dev machine; `delphi_environment_generated.inc.sh` is an empty stub. This is why the telemetry fixes were dropped from the minimal change and why §4's app became a procedure |
+
+> **[WARN] `keyman32.vcxproj` compiles with warnings as errors** (`C2220`). A single unreferenced
+> parameter (`C4100`) fails the build. Any patch drafted for this engine has to be warning-clean, not
+> merely correct — see risk 4 below, where this displaced the predicted `_countof` concern.
 
 ### Repro recipe
 
@@ -62,7 +110,7 @@ The bug lives entirely in that out-of-scope part, and consists precisely of keys
 | 3 | Its sole feed is a `PostMessage`; a stall drops it. **That one stale byte is the entire residue of the delay** | [`k32_lowlevelkeyboardhook.cpp:200`][llh200] |
 | 4 | Every injected batch re-presses what the cache believes → **KEYDOWN with no KEYUP** | [`:384`][sks384] → [`keybd_shift.cpp:161`][kbsr] |
 | 5 | Right Ctrl is emitted as `VK_CONTROL`+`KEYEVENTF_EXTENDEDKEY` — a key the machine may not have; only the exact KEYUP clears it | [`keybd_shift.cpp:69`][kb69], [MODIFIERS §3b][m3b] |
-| 6 | Feed sits **35 lines before** the pass-through filter ⇒ the cache re-confirms its own hallucination, and charges while Keyman is inactive (**3/3**) | [`:229`][llh229], [TRIGGER §3][tr3] |
+| 6 | Feed sits **31 lines before** the pass-through filter ⇒ the cache re-confirms its own hallucination, and charges while Keyman is inactive (**3/3**) | [`:229`][llh229], [TRIGGER §3][tr3] |
 | 7 | *(different defect — see [`capslock/`](capslock/README.md))* Cache B: keyboard switch resyncs **2** flags, focus change resyncs **7**; the modifier half reads `GetKeyState` (thread queue — the stale source) | [`capsstate.cpp:39`][cs39], [`kmhook_getmessage.cpp:418`][gm418], [`aiTIP.cpp:186`][ai186] |
 
 **Key enabler for testing:** `keybd_shift_release`/`keybd_shift_reset` never call `SendInput` — they only fill a caller-supplied `INPUT[]`. They are pure functions over a 256-byte array.
@@ -75,12 +123,21 @@ The bug lives entirely in that out-of-scope part, and consists precisely of keys
 
 **Harness:** [`tests/keyman32.tests.vcxproj`][vcx] — gtest 1.8.1.7 via NuGet, MSBuild. [`build.sh:111-148`][ebs] links the engine as a **static library** into a console exe: no elevation, no TSF, no installed Keyman, no Notepad. Reached by `builder_run_child_actions` → `/windows/build.sh test` → TeamCity ([`windows-actions.inc.sh`][tc]). **No CI change needed.** Limits: TeamCity only (no GHA runs Windows tests), x86/x64 only (`test:arm64` disabled pending #15065).
 
-> **P1 — the vcxproj has no glob.** [`RightAltEmulationCheck.tests.cpp`][raec] is on disk but absent from `<ClCompile>`: added by `404a9ea244`, dropped by merge `4ac24f7b7b` (2025-12-09). **It has not run since.** Restore the line; treat a failure as a separate finding.
+> **P1 — PROBED GREEN, deliberately not landed.** [`RightAltEmulationCheck.tests.cpp`][raec] is on
+> disk but absent from `<ClCompile>`: added by `404a9ea244`, dropped by merge `4ac24f7b7b`
+> (2025-12-09). **It had not run since.** It has now: restored to the vcxproj it **compiles and
+> PASSES** — MEASURED 2026-08-26, **20 tests / 7 cases** with it enabled. So the restore is a safe
+> one-line change and the earlier speculation that it might fail on real `kbdxx.dll` files is
+> answered.
+>
+> The line was then **reverted off this branch on purpose**: `RightAltEmulationCheck` is unrelated to
+> [#8064][i8064] and belongs in its own commit, so that a future failure there is never read as a
+> regression from this work. P1 stays open as a one-line PR for someone to land on its own.
 
 ### Red — fail today, pass after the fix
 
 Two of the three red tests belong to the **Caps Lock / Cache B** defect
-([#16422]/[#16423]), not to [#8064]. They have moved with it, to
+([#16422]/[#16423]), not to [#8064][i8064]. They have moved with it, to
 [`capslock/TEST-PLAN.md`](capslock/TEST-PLAN.md): **T-R1** (the keyboard-switch
 resync covers 2 of 7 flags) and **T-R2** (`GetKeyState` reads the stale source).
 Both land in the same [`keyman32` gtest suite][vcx] described above.
@@ -98,8 +155,13 @@ What remains here, for Cache A:
   real one are identical. So it is written `DISABLED_` and run by hand as a
   demonstration artifact, never as a CI gate. Its green counterpart is
   `ReconcileThenResetPressesNothing` in [The minimal seams](#the-minimal-seams),
-  and the one-line diff between the two *is* D1. Both are drafted, uncompiled,
-  in [The code](#the-code).
+  and the one-line diff between the two *is* D1.
+
+  **Both landed, and both were run.** MEASURED 2026-08-26: invoked by hand with
+  `--gtest_also_run_disabled_tests`, T-R3 **fails on demand**, and it fails with
+  the intended message — the one naming the phantom VK, quoted in
+  [Verification](#verification) below. `ReconcileThenResetPressesNothing` passes.
+  The demonstration is therefore an executed artifact, not a proposal.
 
 > Worth being honest about the consequence of the split: the two cleanest
 > red-to-green tests are Cache B's. #8064's automated story is mostly **proof**
@@ -112,25 +174,48 @@ New `tests/keybd_shift.tests.cpp`, starting `#include "pch.h"` (the PCH is manda
 
 Simulate the stall by constructing its **consequence** — the stale byte array — directly. No sleeps, no threads, no message pump, no flake.
 
-| id | gtest name | asserts | today |
+| id | gtest name | asserts | standing, MEASURED 2026-08-26 |
 |---|---|---|---|
-| **T-P1** | `ResetRepressesFromCache` | given `kbd[VK_LSHIFT]=0x80`, reset emits `VK_SHIFT` KEYDOWN + prefix — **the phantom press, in Keyman's own harness** | passes — the defect, characterised |
-| **T-P2** | `ReleaseEmitsPrefixThenKeyups` | release emits prefix down+up, then the `VK_SHIFT` KEYUP | passes — locks the contract |
-| **T-P3** | `RightControlCollapsesToExtendedControl` | `VK_RCONTROL` → `wVk == VK_CONTROL` with `KEYEVENTF_EXTENDEDKEY` (proof step 5) | passes |
-| **T-P4** | `RightShiftCollapsesToShiftWithRightScanCode` | `VK_RSHIFT` → `wVk == VK_SHIFT`, `wScan == SCANCODE_RSHIFT` | passes |
-| **T-P5** | `ModifierEventCountNeverExceedsReserve` | worst case, all six set, ≤ `MAX_KEYEVENT_INPUTS_MODIFIERS` (8, `serialkeyeventcommon.h`) | passes — guards a comment-only invariant |
-| **T-P6** | `IsModifierKeyAcceptsExactlyNineVks` | [`isModifierKey`][llh62] accepts exactly nine VKs → six slots | passes. **x86 only** — that file is `#ifndef _WIN64`, so guard or skip rather than breaking the x64 run |
-| **T-R3** | `DISABLED_ResetDoesNotPressAKeyThatIsNotHeld` | reset must not emit a KEYDOWN for a modifier the OS reports up | **fails by design** — the function has no live-state input. `DISABLED_`, run by hand |
-| **T-S1-S7** | `RECONCILE_MODIFIER_CACHE.*`, `NORMALIZE_MODIFIER_VK.*` | the two seams below, incl. `ReconcileThenResetPressesNothing` = T-R3 + one line | pass **once the seams land** |
+| **T-P1** | `ResetRepressesFromCache` | given `kbd[VK_LSHIFT]=0x80`, reset emits `VK_SHIFT` KEYDOWN + prefix — **the phantom press, in Keyman's own harness** | **passes** — the defect, characterised |
+| **T-P2** | `ReleaseEmitsPrefixThenKeyups` | release emits prefix down+up, then the `VK_SHIFT` KEYUP | **passes** — locks the contract |
+| **T-P3** | `RightControlCollapsesToExtendedControl` | `VK_RCONTROL` → `wVk == VK_CONTROL` with `KEYEVENTF_EXTENDEDKEY` (proof step 5) | **passes** |
+| **T-P4** | `RightShiftCollapsesToShiftWithRightScanCode` | `VK_RSHIFT` → `wVk == VK_SHIFT`, `wScan == SCANCODE_RSHIFT` | **passes** |
+| **T-P5** | `ModifierEventCountNeverExceedsReserve` | worst case, all six set, ≤ `MAX_KEYEVENT_INPUTS_MODIFIERS` (8, `serialkeyeventcommon.h`) | **passes** — guards a comment-only invariant |
+| **T-P6** | `IsModifierKeyAcceptsExactlyNineVks` | [`isModifierKey`][llh62] accepts exactly nine VKs → six slots | **passes, x86 only** — that file is `#ifndef _WIN64`, and the guard works: the case compiles out of the x64 run rather than breaking it. `SCOPED_TRACE` **removed**, see below |
+| **T-R3** | `DISABLED_ResetDoesNotPressAKeyThatIsNotHeld` | reset must not emit a KEYDOWN for a modifier the OS reports up | **fails on demand, as designed** — verified by hand, with the message naming the phantom VK. `DISABLED_`, never a CI gate |
+| **T-S1** | `RECONCILE_MODIFIER_CACHE.ClearsCachedModifierTheOsReportsUp` | the stranded byte is cleared and reset then emits nothing at all, not even a prefix | **passes** |
+| **T-S2** | `RECONCILE_MODIFIER_CACHE.KeepsCachedModifierTheOsReportsDown` | a genuinely held modifier survives reconciliation and is still restored | **passes** |
+| **T-S3** | `RECONCILE_MODIFIER_CACHE.NeverSetsAModifierTheCacheDoesNotHold` | the asymmetry: reconcile only ever clears | **passes** |
+| **T-S4** | `RECONCILE_MODIFIER_CACHE.ClearsAllSixSlots` | all six slots clear, not just the one the harness uses | **passes.** `SCOPED_TRACE` **removed**, see below |
+| **T-R3'** | `RECONCILE_MODIFIER_CACHE.ReconcileThenResetPressesNothing` | T-R3 with the reconcile line inserted — the one-line diff *is* D1 | **passes** |
+| **—** | `RECONCILE_MODIFIER_CACHE.LeavesNonModifierBytesAlone` | **not specified by this plan.** Bytes outside the six slots are untouched whatever the OS reports — the negative-space counterpart to [MODIFIERS.md §2a][m2b]'s "a stuck letter or number is not this bug", stated as an assertion rather than as prose | **passes** |
+| **T-S5-S7** | `NORMALIZE_MODIFIER_VK.*` | the `S2` seam, still undone | **not written.** Pass only once `S2` lands |
+
+**Counts, so the arithmetic is checkable.** Baseline on the unmodified tree: **7/7**, 3 test cases.
+After the characterisation commit `204e63493b`: **13/13 on x86, 12/12 on x64** — the difference is
+T-P6, correctly compiled out. After the fix commit `a26aa611b5`: **19/19 on x86, 18/18 on x64**, one
+`DISABLED_`.
+
+**The characterisation tests pass on UNMODIFIED production code.** That is the whole point of
+landing `204e63493b` first and separately: nothing in it asserts a fix, so it is the defect written
+down in Keyman's own harness, and it keeps its value even if the fix is reworked in review. It is the
+demonstration artifact to put in front of the team.
 
 ### The code
 
-> **[WARN] PENDING IN-PLACE TESTING.** Everything in this subsection was written
-> against `../keyman` @ `a70538106c` and has **never been compiled and never been
-> run** — the NuGet package is not restored in that checkout, so not one line has
-> been through a compiler. Treat each block as a reviewed draft, not a result.
-> The risk list is at the end of the subsection; its first item is the one most
-> likely to bite.
+> **COMPILED AND RUN, 2026-08-26.** Everything in this subsection has been through
+> a compiler and an executable. It landed as `204e63493b` *test(windows):
+> characterise phantom modifier re-press in serial key event server*, with the
+> seam tests appended by `a26aa611b5`. Results: **19/19 on `test:x86`, 18/18 on
+> `test:x64`**, one `DISABLED_` by design. The `Globals_InitProcess()` fixture
+> works — on a machine with Keyman installed **and running** — so risk 1 below is
+> resolved and `S0` is retired.
+>
+> **One correction the blocks below now carry.** `SCOPED_TRACE` was in the drafted
+> `T-P6` and `T-S4`; it **fails the leak detector** and both have been rewritten to
+> use per-assertion `<<` messages. Detail in the next subsection and in risk 3. The
+> remaining risk list is at the end of the subsection, each item at its measured
+> standing.
 
 #### gtest 1.8.1 is the constraint, not gtest
 
@@ -146,10 +231,21 @@ does not have:
 | `INSTANTIATE_TEST_SUITE_P` | **absent** — 1.8.1 has `INSTANTIATE_TEST_CASE_P` | no parameterised test is used below |
 | `TYPED_TEST_SUITE` | **absent** — 1.8.1 has `TYPED_TEST_CASE` | not used |
 | gmock | **not linked** — `AdditionalDependencies` names no gmock lib | no `EXPECT_THAT`, no `MOCK_METHOD`; the stub readers below are plain function pointers |
-| `TEST`, `TEST_F`, `EXPECT_EQ/NE/LE`, `ASSERT_EQ/NE/TRUE`, `EXPECT_TRUE/FALSE`, `SUCCEED`, `SCOPED_TRACE`, `GTEST_LOG_`, `DISABLED_` prefix | present | the whole vocabulary used below |
+| `SCOPED_TRACE` | present, and **unusable in this suite** | MEASURED 2026-08-26: 1.8.1's `ScopedTrace` pushes onto a trace-stack vector whose **capacity is retained after the scope exits**, and `gtest_main.cpp`'s `_CrtMemDifference` reports it as a **168-byte leak** — a failing test. Use per-assertion `<<` messages instead |
+| `TEST`, `TEST_F`, `EXPECT_EQ/NE/LE`, `ASSERT_EQ/NE/TRUE`, `EXPECT_TRUE/FALSE`, `SUCCEED`, `GTEST_LOG_`, `DISABLED_` prefix | present | the whole vocabulary used below |
 
 `SetUp`/`TearDown` are declared without `override`, matching the existing
 `kmprocessactions.tests.cpp` fixture.
+
+> **[WARN] Do not reintroduce `SCOPED_TRACE` into this suite.** It reads as the
+> obvious way to name the failing element of a loop, and it is what the drafts of
+> `T-P6` and `T-S4` used — but in gtest 1.8.1 under this project's leak detector it
+> makes any test that uses it fail, for 168 bytes of retained vector capacity that
+> is not a leak in any useful sense. The substitute is a per-assertion `<<` message
+> carrying the loop variable, which is what both tests now do and what the rest of
+> the suite already did. This is a constraint of the same class as the missing
+> `GTEST_SKIP()`: not a gtest limitation, a **1.8.1-plus-`gtest_main.cpp`**
+> limitation.
 
 #### T-P1…T-P6, T-R3 — `tests/keybd_shift.tests.cpp` (new)
 
@@ -352,7 +448,7 @@ TEST_F(KEYBD_SHIFT, RightShiftCollapsesToShiftWithRightScanCode) {
 */
 TEST_F(KEYBD_SHIFT, ModifierEventCountNeverExceedsReserve) {
   const BYTE allSix[6] = { VK_LMENU, VK_RMENU, VK_LCONTROL, VK_RCONTROL, VK_LSHIFT, VK_RSHIFT };
-  for (int i = 0; i < _countof(allSix); i++) {
+  for (int i = 0; i < (int)_countof(allSix); i++) {
     kbd[allSix[i]] = 0x80;
   }
 
@@ -398,9 +494,11 @@ TEST(K32LowLevelKeyboardHook, IsModifierKeyAcceptsExactlyNineVks) {
   EXPECT_EQ(acceptedCount, (int)_countof(accepted))
       << "the accepted VK set changed; Cache A's six slots and MODIFIERS.md section 2 depend on it";
 
-  for (int i = 0; i < _countof(accepted); i++) {
-    SCOPED_TRACE(accepted[i]);
-    EXPECT_TRUE(isModifierKey(accepted[i]));
+  // No SCOPED_TRACE: gtest 1.8.1 retains its trace-stack capacity past the scope
+  // and gtest_main.cpp's leak detector fails the test for 168 bytes. The loop
+  // variable goes in the assertion message instead.
+  for (int i = 0; i < (int)_countof(accepted); i++) {
+    EXPECT_TRUE(isModifierKey(accepted[i])) << "accepted[" << i << "] vk=" << (int)accepted[i];
   }
 
   // Measured immune, 0/2 each, under the stimulus that latched all six modifiers.
@@ -482,15 +580,45 @@ not a regression from this work.
 
 Three seams, in descending order of value. Each is small enough to review in one
 sitting, and each one exists so that something currently untestable becomes a
-pure function over its arguments.
+pure function over its arguments. **S3 has landed; S2 and S1 have not; S0 is
+retired.**
 
-#### S3 — `ReconcileModifierCache` (new; the seam fix D1 needs)
+#### S3 — `ReconcileModifierCache` — LANDED, `a26aa611b5`
 
 D1 is "re-validate Cache A from the OS at batch start". The whole fix is one
 function plus one call. Making the state reader a parameter is the entire seam:
 with it the function is pure and testable with no OS involvement, no thread and
 no stall — and gmock is not linked, so a plain function pointer is the right
 shape anyway.
+
+**Shipped as `a26aa611b5`** *fix(windows): reconcile cached modifier state with the
+OS before injecting* — `keymanengine.h`, `keybd_shift.cpp`,
+`serialkeyeventserver.cpp`, plus the seam tests appended to
+`tests/keybd_shift.tests.cpp`. 64 lines across the three production files, roughly
+40 of them comment; the executable change is one typedef, one declaration, a
+ten-line loop and one call. Name collisions were checked, not assumed:
+`ReconcileModifierCache` and the typedef appear nowhere else in the repository, and
+there was no pre-existing `GetAsyncKeyState` typedef.
+
+Two deviations from the drafts below, both deliberate, both from
+[`IN-TREE.md`](IN-TREE.md) §2:
+
+- **The typedef shipped as `PGETASYNCKEYSTATE`, not `PFNGETASYNCKEYSTATE`.** The
+  engine's own precedent is `globals.h:153-162` — `typedef BOOL (WINAPI *PKEYMANINIT)();`.
+  `PFN` appears **nowhere** in this codebase. The blocks below have been updated to the
+  shipped name; the same correction applies to `S1`'s `PFNGETKEYSTATE`, which is still
+  a draft and should be renamed before it lands.
+- **No filtering of `SCAN_FLAG_KEYMAN_KEY_EVENT` / `EXTRAINFO_FLAG_SERIALIZED_USER_KEY_EVENT`.**
+  That advice belonged to a design that reads the event stream. This one reads
+  `GetAsyncKeyState`, so there is no event to filter.
+
+Two things the shipped comment says that the draft did not, because they change
+how the fix must be argued — both are [`IN-TREE.md`](IN-TREE.md) §3: the fix is
+**preventive, not curative** (once the first phantom KEYDOWN lands, cache and OS
+*agree* and a `GetAsyncKeyState` reconcile can no longer see anything wrong, so
+batch start is the last point at which prevention is possible, and this cannot
+recover an already-latched process); and there is **one residual regression risk**,
+accepted and documented in the code rather than left for a reviewer to find.
 
 Declaration, next to `keybd_shift` so it needs no new header and reaches the
 tests through the existing `pch.h`:
@@ -506,7 +634,7 @@ tests through the existing `pch.h`:
 +  Exists so the reconciliation can be unit tested without touching the OS.
 +  Production callers pass GetAsyncKeyState.
 +*/
-+typedef SHORT(WINAPI* PFNGETASYNCKEYSTATE)(int vKey);
++typedef SHORT(WINAPI* PGETASYNCKEYSTATE)(int vKey);
 +
 +/**
 +  Clears any of the six cached modifier bytes that the OS reports as up. Only
@@ -516,7 +644,7 @@ tests through the existing `pch.h`:
 +  Returns TRUE if the cache disagreed with the OS. That disagreement is
 +  keymanapp/keyman#8064, and nothing reports it today.
 +*/
-+BOOL ReconcileModifierCache(LPBYTE const kbd, PFNGETASYNCKEYSTATE pfnGetAsyncKeyState);
++BOOL ReconcileModifierCache(LPBYTE const kbd, PGETASYNCKEYSTATE pfnGetAsyncKeyState);
 ```
 
 Definition in `keybd_shift.cpp`, which already owns the six-modifier list and the
@@ -547,7 +675,7 @@ whole VK/scan-code/extended-bit story:
 +  GetAsyncKeyState rather than GetKeyboardState: GetKeyboardState reports the
 +  calling thread's processed input queue, which is the source that is stale.
 +*/
-+BOOL ReconcileModifierCache(LPBYTE const kbd, PFNGETASYNCKEYSTATE pfnGetAsyncKeyState) {
++BOOL ReconcileModifierCache(LPBYTE const kbd, PGETASYNCKEYSTATE pfnGetAsyncKeyState) {
 +  const BYTE modifiers[6] = { VK_LMENU, VK_RMENU, VK_LCONTROL, VK_RCONTROL, VK_LSHIFT, VK_RSHIFT };
 +  BOOL disagreed = FALSE;
 +
@@ -582,9 +710,11 @@ Keyman's own synthetic events:
      keybd_shift(m_pInputs, &m_nInputs, FALSE, m_ModifierKeyboardState);
 ```
 
-Tests for the seam. These are green the moment the seam lands, and they need no
-OS state at all — `T-R3'` is `T-R3` with the reconcile line inserted, which is
-the cleanest available statement of what D1 buys:
+Tests for the seam. **All green, MEASURED 2026-08-26**, and they need no OS state
+at all — `T-R3'` is `T-R3` with the reconcile line inserted, which is the cleanest
+available statement of what D1 buys. One more test than is shown here landed with
+them, `LeavesNonModifierBytesAlone`; it was not specified by this plan, and it is
+in the table above:
 
 ```cpp
 // Appended to tests/keybd_shift.tests.cpp.
@@ -662,15 +792,16 @@ TEST_F(RECONCILE_MODIFIER_CACHE, NeverSetsAModifierTheCacheDoesNotHold) {
 */
 TEST_F(RECONCILE_MODIFIER_CACHE, ClearsAllSixSlots) {
   const BYTE allSix[6] = { VK_LMENU, VK_RMENU, VK_LCONTROL, VK_RCONTROL, VK_LSHIFT, VK_RSHIFT };
-  for (int i = 0; i < _countof(allSix); i++) {
+  for (int i = 0; i < (int)_countof(allSix); i++) {
     kbd[allSix[i]] = 0x80;
   }
 
   EXPECT_TRUE(ReconcileModifierCache(kbd, StubGetAsyncKeyState));
 
-  for (int i = 0; i < _countof(allSix); i++) {
-    SCOPED_TRACE(allSix[i]);
-    EXPECT_EQ(kbd[allSix[i]], (BYTE)0);
+  // No SCOPED_TRACE here either -- same 168-byte leak-detector failure. See the
+  // gtest 1.8.1 constraints table.
+  for (int i = 0; i < (int)_countof(allSix); i++) {
+    EXPECT_EQ(kbd[allSix[i]], (BYTE)0) << "allSix[" << i << "] vk=" << (int)allSix[i];
   }
 
   keybd_shift(inputs, &n, TRUE, kbd);
@@ -690,7 +821,12 @@ TEST_F(RECONCILE_MODIFIER_CACHE, ReconcileThenResetPressesNothing) {
 }
 ```
 
-#### S2 — `NormalizeModifierVk` (extraction; unblocks testing the cache writer)
+#### S2 — `NormalizeModifierVk` (extraction; unblocks testing the cache writer) — NOT DONE
+
+**Still a draft, and nothing below it has been compiled.** A pure testability
+refactor the landed fix does not need, so it was left out of the minimal change
+along with its tests `T-S5`-`T-S7`. Worth doing separately; the reasoning below
+stands unrevised.
 
 `UpdateLocalModifierState` is the **only** writer to Cache A
 (`serialkeyeventserver.cpp:581`), and today it cannot be tested at all: it is a
@@ -868,7 +1004,11 @@ TEST(NORMALIZE_MODIFIER_VK, RejectsNonModifiersWithoutWriting) {
 }
 ```
 
-#### S1 — `RefreshModifierShiftState` (Cache B; belongs to `capslock/`)
+#### S1 — `RefreshModifierShiftState` (Cache B; belongs to `capslock/`) — NOT DONE
+
+**Still a draft, never compiled.** It serves a different defect and was never in
+scope for the landed branch; if it does land, rename `PFNGETKEYSTATE` to
+`PGETKEYSTATE` for the `globals.h:153-162` precedent noted under S3.
 
 This seam serves the **Caps Lock / Cache B** defect (#16422 / #16423), and the
 tests that consume it live in [`capslock/TEST-PLAN.md`](capslock/TEST-PLAN.md).
@@ -965,25 +1105,42 @@ is still read after `RefreshToggleState()`. The only difference is that the
 read-modify-write is batched into a local before the single store, which matters
 only if another thread mutated `ShiftState` mid-function — it does not.
 
-#### S0 — the fallback, only if the fixture proves unusable
+#### S0 — RETIRED. The fixture works; the fallback is unnecessary
 
-If `Globals_InitProcess()` in the fixture turns out to be too heavy in the test
-process (see risk 1 below), the alternative is to give `keybd_shift` a variant
-that takes the prefix VK as a parameter and does no logging, leaving the existing
-function as a one-line wrapper. **Prefer the fixture.** It is already precedent in
-`kmprocessactions.tests.cpp`, and S0 duplicates a code path in production to suit
-a test, which is the worse trade. Raised only so the reviewer has it — this is
-`TEST-PLAN.md` P6.
+S0 was the escape hatch for risk 1: if `Globals_InitProcess()` in the fixture
+proved too heavy in the test process, give `keybd_shift` a variant taking the
+prefix VK as a parameter and doing no logging, leaving the existing function as a
+one-line wrapper.
+
+**It is not needed. MEASURED 2026-08-26:** the `Globals_InitProcess()` fixture
+works, on a machine with Keyman **installed and running** — which is the exact
+condition risk 1 was written about — and the allocation balances cleanly against
+the `gtest_main.cpp` leak detector. All 19 tests use it. So the trade S0 existed to
+hedge never had to be made.
+
+The reasoning is retired rather than deleted because it is the right reasoning:
+S0 duplicates a production code path to suit a test, `kmprocessactions.tests.cpp`
+was already precedent for the fixture, and **prefer the fixture** was the correct
+call before the measurement as well as after it. Nobody should have to re-derive
+that if the fixture is ever questioned again. Retiring S0 also closes `P6`'s S0
+half; the S1/S2 half stays open.
 
 ---
 
-### P0 — `windows/src/support/fakefreeze/build.sh` (new)
+### P0 — `windows/src/support/fakefreeze/build.sh` — LANDED, `5274fec612`
 
-The stimulus ships already; only the build entry point is missing. Modelled on
-`wow64kbd/build.sh`, minus the ARM64/ARM64EC actions, because
+The stimulus already shipped; only the build entry point was missing. **Built and
+run: `fakefreeze.exe` for x86 and x64, and a clean rebuild leaves the tree clean.**
+
+Drafted here against `wow64kbd/build.sh`, minus the ARM64/ARM64EC actions, because
 `fakefreeze.vcxproj` declares only `Debug|Win32`, `Release|Win32`, `Debug|x64`
 and `Release|x64`. There is no `test` action: the tool's effect is to make Keyman
 unresponsive for five seconds, which is not something to run unattended in CI.
+
+> **What shipped differs from the draft below in its model.** `etl2log`, not
+> `wow64kbd`, for the reasons in §1's P0 note — and the shipped `fakefreeze.vcxproj`
+> also gained `OutDir`/`IntDir`, which the draft did not anticipate needing. Read
+> the block below as the shape, not the diff.
 
 ```bash
 #!/usr/bin/env bash
@@ -1058,12 +1215,30 @@ ls windows/src/support/fakefreeze/bin/Win32/Debug/fakefreeze.exe
 One thing to flag in the PR rather than bury: `:fakefreeze` under
 `support/build.sh` means CI builds it on every Windows build. That is the point —
 it is how the stimulus becomes reproducible for anyone else — but it is a
-reviewer's call, and the narrower alternative is to ship the `build.sh` and leave
+reviewer's call, and the narrower alternative was to ship the `build.sh` and leave
 it unregistered, exactly as `wow64kbd` is today.
+
+**Registered, not left unregistered.** `:support` is a child of
+`windows/src/build.sh:26`, so `./windows/build.sh` does reach it — which is the
+entire point of P0, and leaving it unregistered would have shipped the script
+without the outcome. The tool is deliberately **not** copied to
+`WINDOWS_PROGRAM_SUPPORT`: built, not packaged.
+
+> **[WARN] The full support cascade does not complete on this machine.**
+> `./windows/src/support/build.sh test` fails at **`oskbulkrenderer`**, a Delphi
+> project, because Delphi is not installed — and it fails *before* `fakefreeze` is
+> reached. Environmental, not a defect in this work, but it means gate **T12**
+> below is not fully verifiable here. `test:fakefreeze` on its own is exit 0.
 
 ---
 
 ### M1 + M2 — the manual app's oracle
+
+> **This Pascal is future work, not the shipped manual test.** P4 was superseded in
+> *form* by a README-driven procedure — `78a0c22edc`, see §4 — so nothing below has
+> been compiled, and Delphi is not installed on this machine. It remains worth
+> building for [TODO I14][todo] and for watching the wedge form in real time. It is
+> no longer on the critical path.
 
 Not written out here: the full app is P4, a Delphi VCL form, and the template to
 copy is `keyboard_ll_identifier/`, which already has the form, the hook and the
@@ -1129,61 +1304,88 @@ the app must log every event, not just its own verdict.
 
 ---
 
-### Known risks in the above, in the order they will bite
+### Known risks in the above — three measured, one resolved, one still open
 
-1. **The fixture may be the wrong shape.** `Globals_InitProcess()` reaches
+Written as predictions, in the order they were expected to bite. Kept in that order
+so the predictions can be scored. Detail on each is [`IN-TREE.md`](IN-TREE.md) §4.
+
+1. **The fixture may be the wrong shape** — `Globals_InitProcess()` reaches
    `Globals_InitThread()` → `ISerialKeyEventClient::Startup()`, which on a machine
-   with Keyman running may open the **live** server's file mapping. Harmless in
-   principle — the client only opens handles — but it is a real environmental
-   dependency inside tests whose whole selling point is having none.
-   `kmprocessactions.tests.cpp` already does this, so the precedent is there, but
-   it has never been run on a machine with Keyman active *and* wedged. **Check
-   this first.** If it is a problem, S0 is the fallback.
-2. **The `csGlobals` hazard is reasoned, not observed.** The claim that calling
+   with Keyman running may open the **live** server's file mapping, an
+   environmental dependency inside tests whose whole selling point is having none.
+   → **RESOLVED. Not a problem, MEASURED 2026-08-26** on a machine with Keyman
+   installed *and running*. `kmprocessactions.tests.cpp`'s precedent held. **S0 is
+   retired** on this result. It was still right to check it first.
+2. **The `csGlobals` hazard is reasoned, not observed** — that calling
    `keybd_shift` without `Globals_InitProcess()` enters a zeroed
    `CRITICAL_SECTION` follows from `k32_globals.cpp:96` and `:161`, and a zeroed
-   `CRITICAL_SECTION` is documented UB. Whether it hangs, crashes or silently
-   works on this Windows build is unmeasured. If it silently works, the fixture is
-   merely tidy rather than mandatory — do not restate risk 2 as a finding either way.
-3. **The leak detector in `gtest_main.cpp` fails any test that leaks.**
-   `Globals_InitProcess` allocates with `LocalAlloc`, not the CRT heap, and
-   `TearDown` frees it before `OnTestEnd` — so it should balance. Unverified.
+   `CRITICAL_SECTION` is documented UB. → **STILL UNMEASURED, and now unmeasurable
+   through this path**: the fixture calls `Globals_InitProcess()`, so the zeroed
+   `CRITICAL_SECTION` was never provoked. It remains reasoning. Do not restate it
+   as a finding in either direction — the fixture being *correct* is not evidence
+   that it is *mandatory*.
+3. **The leak detector in `gtest_main.cpp` fails any test that leaks** — expected
+   to bite on `Globals_InitProcess`, which allocates with `LocalAlloc` rather than
+   the CRT heap. → **MEASURED, AND IT FIRES — but for a different reason than
+   predicted.** Not `Globals_InitProcess`: that balances cleanly. It fires on
+   **`SCOPED_TRACE`**. gtest 1.8.1's `ScopedTrace` pushes onto a trace-stack vector
+   whose capacity survives scope exit, and `_CrtMemDifference` reports **168 bytes**.
+   This invalidated the drafted `T-P6` and `T-S4`, both of which used it; both now
+   use per-assertion `<<` messages, and the constraints table above carries the
+   finding so it is not reintroduced. The prediction was right about the mechanism
+   and wrong about the culprit.
 4. **`_countof` in an `int` loop** produces a signed/unsigned comparison at
-   `/W3`. The existing `keybd_shift.cpp` does exactly this, so it matches the file,
-   but the tests project may carry different warning settings.
-5. **T-P6 asserts a count over the whole 0-255 VK range.** If `isModifierKey`
-   ever gains a tenth VK the count assertion fires before the named-VK loop,
-   which is the intent — but the failure message must be read as "the set
-   changed", not "the function is broken".
-6. **`RightAltEmulationCheck` may fail on restore.** It reads real `kbdxx.dll`
-   files by layout name. Eight months dark; if it fails, that is P1's finding and
-   nothing to do with #8064.
+   `/W3`. → **Non-issue.** `keybd_shift.cpp` already does exactly this, and in the
+   tests it is cast to `(int)`. The real finding is adjacent and larger:
+   **`keyman32.vcxproj` compiles with warnings as errors** (`C2220`), so a lone
+   `C4100` unreferenced parameter fails the build. See §1.
+5. **T-P6 asserts a count over the whole 0-255 VK range** — if `isModifierKey`
+   ever gains a tenth VK the count assertion fires before the named-VK loop, which
+   is the intent, but the failure message must be read as "the set changed", not
+   "the function is broken". → **Fine as drafted; it passes.** The caveat about how
+   to read the failure still applies.
+6. **`RightAltEmulationCheck` may fail on restore** — it reads real `kbdxx.dll`
+   files by layout name, and had been eight months dark. → **MEASURED, and it
+   passes**: 20 tests / 7 cases with it enabled. So P1 is a safe one-line change.
+   It is still deliberately not on this branch, because it is unrelated to
+   [#8064][i8064] and a future failure there must not be read as a regression from
+   this work.
 
 ---
 
 ### Verification
 
+The commands as originally written included `configure`. **Drop it** — see §1
+blocker 2; `configure` pulls `@/core:win`, builds core for arm64 and dies on
+missing ARM64 MSVC libraries, while `test:x86` and `test:x64` need it not at all.
+What actually runs:
+
 ```bash
-# the only thing that must go green in CI
-./windows/src/engine/keyman32/build.sh --debug configure build test:x64
-./windows/src/engine/keyman32/build.sh --debug test:x86     # isModifierKey coverage
-./windows/build.sh test                                     # child action still cascades
+# the only thing that must go green in CI -- both MEASURED green 2026-08-26
+./windows/src/engine/keyman32/build.sh --debug test:x86     # 19/19, incl. isModifierKey coverage
+./windows/src/engine/keyman32/build.sh --debug test:x64     # 18/18, T-P6 correctly compiled out
+./windows/build.sh test                                     # child action still cascades -- see T12
 
 # the demonstration artifact, run by hand and never in CI
+cd windows/src/engine/keyman32
 ./tests/bin/Win32/Debug/keyman32.tests.exe --gtest_also_run_disabled_tests \
-  --gtest_filter=KEYBD_SHIFT.DISABLED_ResetDoesNotPressAKeyThatIsNotHeld
+  --gtest_filter='KEYBD_SHIFT.DISABLED_ResetDoesNotPressAKeyThatIsNotHeld'
 ```
 
-**All three CI commands must be fully green.** T-R3 is `DISABLED_`: it cannot pass
-without changing what `keybd_shift` is *for*, so it is a demonstration artifact
-rather than a regression gate. The last command is how it is shown, and it must
-fail there with a message naming the phantom VK. Its green counterpart is
-`ReconcileThenResetPressesNothing`, and the one-line diff between the two is fix
-D1.
+**Both test commands are fully green.** T-R3 is `DISABLED_`: it cannot pass without
+changing what `keybd_shift` is *for*, so it is a demonstration artifact rather than
+a regression gate. The last command is how it is shown, and **it does fail there,
+with the message naming the phantom VK** — MEASURED 2026-08-26. Its green
+counterpart is `ReconcileThenResetPressesNothing`, and the one-line diff between
+the two is fix D1.
 
-Confirm `RightAltEmulationCheck` now appears in the run output — that is the proof
-P1 worked. If it *fails*, that is a separate finding: it has not run since
-2025-12-09 and has nothing to do with #8064.
+`./windows/build.sh test` has **not** been run to completion on this machine: the
+support cascade dies at `oskbulkrenderer` for want of Delphi, before `fakefreeze`
+is reached. `test:fakefreeze` alone is exit 0. **T12 needs CI or a Delphi machine.**
+
+`RightAltEmulationCheck` does **not** appear in this branch's run output, and that
+is correct: P1 was probed green and then reverted off, to land on its own. When it
+is restored, confirming it in the output is the proof P1 worked.
 
 **Trap:** `keyman32.tests.vcxproj` has **no glob**. Every test `.cpp` must be listed in the `<ClCompile>` ItemGroup (~line 231), which is exactly how `RightAltEmulationCheck.tests.cpp` went dark for eight months.
 
@@ -1196,22 +1398,43 @@ doing this at all: `ReadAltGrFlagFromKbdDll(name,out)` was split out of
 `KeyboardGivesCtrlRAltForRAlt()` purely for testability — rationale is in [the
 test's own comment][raec].
 
-| seam | what it makes testable | scope |
+| seam | what it makes testable | scope and standing |
 |---|---|---|
-| **S3** `ReconcileModifierCache` | the D1 fix itself, as a pure function over the 256-byte array plus an injected state reader | Cache A / #8064 — **the one that matters** |
-| **S2** `NormalizeModifierVk` | the *only* writer to Cache A ([`UpdateLocalModifierState`][sks554]), today a private method of a class defined inside the `.cpp`, behind `#ifndef _WIN64`, whose ctor spawns a thread and a file mapping | Cache A / #8064 |
-| **S1** `RefreshModifierShiftState` | [`GetCapsAndNumlockState`][gm418], which has no header decl at all — only a file-local forward decl at `:71` — so [`aiTIP.cpp:186`][ai186] cannot call it = [TODO F1/F3][todo] | **Cache B**, belongs to [`capslock/`](capslock/README.md) |
-| **S0** prefix-VK parameter | fallback only, if the `Globals_InitProcess()` fixture proves unusable. Duplicates a production path to suit a test; prefer the fixture | Cache A |
+| **S3** `ReconcileModifierCache` | the D1 fix itself, as a pure function over the 256-byte array plus an injected state reader | Cache A / #8064 — **the one that matters. LANDED, `a26aa611b5`**, shipped as `PGETASYNCKEYSTATE` |
+| **S2** `NormalizeModifierVk` | the *only* writer to Cache A ([`UpdateLocalModifierState`][sks554]), today a private method of a class defined inside the `.cpp`, behind `#ifndef _WIN64`, whose ctor spawns a thread and a file mapping | Cache A / #8064 — **NOT DONE.** The landed fix does not need it |
+| **S1** `RefreshModifierShiftState` | [`GetCapsAndNumlockState`][gm418], which has no header decl at all — only a file-local forward decl at `:71` — so [`aiTIP.cpp:186`][ai186] cannot call it = [TODO F1/F3][todo] | **Cache B**, belongs to [`capslock/`](capslock/README.md) — **NOT DONE** |
+| **S0** prefix-VK parameter | fallback only, if the `Globals_InitProcess()` fixture proved unusable. Duplicates a production path to suit a test | **RETIRED.** The fixture was measured to work with Keyman installed and running; the fallback is unnecessary |
 
-**Order:** P1 → T-P1…T-P6 → T-R1/T-R2 → F1/F2 turn them green → S3 +
+**Order, as planned:** P1 → T-P1…T-P6 → T-R1/T-R2 → F1/F2 turn them green → S3 +
 T-S1…T-S4 + T-R3’ (these stand alone and are worth landing even if D1 is not) →
 S2 + T-S5…T-S7 →
 T-R3 and S1 only if Cache A is picked up. P0 is independent of all of it and
 unblocks everyone else, so it goes first in wall-clock terms.
 
+**Order, as executed:** P1 probed and reverted → P2 (T-P1…T-P6, T-R3) landed as
+`204e63493b`, standing alone on unmodified production code → S3 + T-S1…T-S4 +
+T-R3’ + `LeavesNonModifierBytesAlone` landed as `a26aa611b5` → P0 as `5274fec612`
+→ the manual test as `78a0c22edc`. S2, S1, P3 and P5 untouched; S0 retired. The
+plan's judgement that the S3 group "stand[s] alone and [is] worth landing even if
+D1 is not" is why `204e63493b` and `a26aa611b5` are two commits and not one.
+
 ---
 
 ## 4. Manual Windows test
+
+**LANDED** as `78a0c22edc` *test(windows): add manual test for the stuck modifier phantom KEYDOWN*, at `windows/src/test/manual-tests/GH-8064 - stuck-modifier-phantom-keydown/README.md` — **a README-driven procedure over tools that already exist, not the new Delphi VCL app this section proposed.**
+
+> **Decision, recorded 2026-08-26.** P4 — a new app modelled on [`keyboard_ll_identifier`][klid] with the M1-M4 additions — was **not** built. Three reasons, in order of weight:
+>
+> 1. **It is the directory's own convention, not a shortcut.** [`manual-tests/README.md`][mtr] says these tests have "generally no build process included", so a README-driven procedure is what belongs there.
+> 2. **Delphi is not installed on this machine** (§1). A new VCL app could not have been compiled, so it would have been one more never-built draft — exactly what this session existed to stop producing.
+> 3. **M1 is a nice-to-have, not a prerequisite.** [`keyboard_ll_identifier`][klid] **already logs `scanCode`** (`keyboard_ll_identifier_unit.pas:52`), so `scan = 0xFF` — the marker identifying the phantom as Keyman-synthesized — **is visible today**. Only `dwExtraInfo` is missing, and the phantom does not need it. M1 therefore buys clarity, not capability.
+>
+> The oracle in the shipped README is two PowerShell snippets, **both executed before being written into it**: `GetAsyncKeyState` over `0xA0`-`0xA5`, and a `keybd_event` KEYUP sweep for recovery.
+>
+> The full app **remains worth building** — for [TODO I14][todo] and for watching the wedge form in real time — and everything specified below is the specification for it. It is simply no longer on the critical path, and it is no longer what stands between this analysis and a reproducible manual test.
+
+The rest of this section is the app's specification, and the source of the shipped README's procedure.
 
 **Goes in** `windows/src/test/manual-tests/GH-16423 - stuck-modifier-phantom-keydown/`. That directory's [README][mtr]: *"intended to be run manually, so there is generally no build process included."* No builder registration, no CI, no elevation. Naming follows `GH-<issue> - <slug>` (cf. `GH-140 - shift states`).
 
@@ -1221,11 +1444,11 @@ unblocks everyone else, so it goes first in wall-clock terms.
 
 Keep the **LL hook**, not the commented-out `Application.OnMessage` variant: the WM_KEY* path is downstream of the drop and cannot observe it. README must state the manual procedure and that a **global** hook is active (every keystroke on the machine is logged).
 
-**Naming:** the slug above says `GH-16423`, which is the *Cache B* PR. This app is for **#8064** — name it `GH-8064 - stuck-modifier-phantom-keydown/`.
+**Naming:** the slug above says `GH-16423`, which is the *Cache B* PR. This app is for **#8064** — name it `GH-8064 - stuck-modifier-phantom-keydown/`. **Applied:** that is the directory `78a0c22edc` created.
 
-### The manual procedure the README must carry
+### The manual procedure the README carries
 
-Against a real Keyman install with a Keyman keyboard active:
+This procedure is what shipped, translated off the unbuilt app and onto tools that exist: `fakefreeze.exe` for step 2's stall, [`keyboard_ll_identifier`][klid] for the event log in steps 1 and 4, and a PowerShell `GetAsyncKeyState` sweep over `0xA0`-`0xA5` for step 4's oracle plus a `keybd_event` KEYUP sweep for step 6's recovery. Both snippets were **executed before being written into the README**. Against a real Keyman install with a Keyman keyboard active:
 
 1. Launch; confirm modifier events log with decoded flags and `dwExtraInfo`.
 2. Press and hold **Left Shift**; click the stall button; **release Shift during the stall**.
@@ -1286,21 +1509,46 @@ The blocker: the `c keys:` grammar has no way to say "modifier down … modifier
 
 Idiom follows [TODO.md]. Series chosen to avoid collision with existing I/H/F/D/T.
 
-**Port** — drafts for P0-P2 and the seams are in "The code" and "The minimal seams" above; all are **uncompiled**. `[ ]` **P0** add `fakefreeze/build.sh` (pattern: [`wow64kbd/build.sh`][w64]) **and register `:fakefreeze` in `support/build.sh`** — the script alone is not enough, which is why `wow64kbd` still never builds · **P1** restore `RightAltEmulationCheck.tests.cpp` to the vcxproj · **P2** `tests/keybd_shift.tests.cpp` (T-P1…T-P6, T-R3, and the seam tests T-S1…T-S7) · **P3** `tests/capsstate.tests.cpp` (T-R1, T-R2) · **P4** the manual app · **P5** extend [`keystroke-lifecycle.md`][klc] to cover the serializer, folding in §2 · **P6** settle S1/S2 with the reviewer before T-R3.
+**Port** — as of 2026-08-26, four items are committed on `fix/windows/8064-reconcile-modifier-cache`; the rest are still drafts in "The code" and "The minimal seams" above. Per-item standing:
+
+- `[x]` **P0** add `fakefreeze/build.sh` **and register `:fakefreeze` in `support/build.sh`** — the script alone is not enough, which is why `wow64kbd` still never builds. **DONE, `5274fec612`**, modelled on `etl2log` rather than the [`wow64kbd/build.sh`][w64] pattern originally proposed. Builds x86 and x64; `test:fakefreeze` exit 0.
+- `[ ]` **P1** restore `RightAltEmulationCheck.tests.cpp` to the vcxproj. **PROBED GREEN** — 20 tests / 7 cases — then **deliberately reverted off this branch**: unrelated to [#8064][i8064], belongs in its own commit. Still a one-line PR for someone to land.
+- `[x]` **P2** `tests/keybd_shift.tests.cpp`. **DONE, `204e63493b`** (T-P1…T-P6, T-R3) plus the S3 seam tests appended by `a26aa611b5` (T-S1…T-S4, T-R3’, `LeavesNonModifierBytesAlone`). T-S5…T-S7 are **not** in it: they belong to S2, which is not done.
+- `[ ]` **P3** `tests/capsstate.tests.cpp` (T-R1, T-R2) — untouched; Cache B, see [`capslock/`](capslock/README.md).
+- `[~]` **P4** the manual app — **superseded in form**. The manual test landed as `78a0c22edc`, a README-driven procedure over existing tools (§4). The app itself is still unbuilt and still worth building, for [TODO I14][todo]; it is off the critical path.
+- `[ ]` **P5** extend [`keystroke-lifecycle.md`][klc] to cover the serializer, folding in §2 — untouched.
+- `[~]` **P6** settle S1/S2 with the reviewer before T-R3. Its **S0 half is closed** — S0 is retired, the fixture was measured to work. The S1/S2 half is open and both seams are undone.
+
+**Seams** — `[x]` **S3** `ReconcileModifierCache`, **DONE, `a26aa611b5`**, shipped as `PGETASYNCKEYSTATE` per the `globals.h:153-162` precedent · `[ ]` **S2** `NormalizeModifierVk` — not done, and the landed fix does not need it · `[ ]` **S1** `RefreshModifierShiftState` — not done, Cache B · `[x]` **S0** prefix-VK parameter — **RETIRED, not implemented**: risk 1 was measured away, so the fallback is unnecessary. The reasoning is kept above rather than deleted.
 
 **Cross-platform** — `[ ]` **X1** reset Linux `{l,r}{ctrl,alt}_pressed` in `focus_in` (set only in the ctor, never re-synced on focus/reset/enable/disable — the closest structural sibling to the Windows bug) · **X2** reconcile macOS `currentModifiers` against the event, caching only the L/R chirality bits IMK lacks · **X3** re-seed it when the event tap re-enables · **X4** a macOS test for the cached path — every existing test builds an `NSEvent` with explicit `modifierFlags:` and exercises the *read-from-event* path, so `determineModifiers`/`currentModifiers`/`eventTapFunction` have **no test at all** · **X5** a dropped-KEYUP test for Linux — `tests/KeyHandling.cpp` always emits balanced pairs · **X6** write down the no-unpaired-modifier-injection invariant · **X7** *(minor)* no unit test for `PassthroughKeyboard.raiseKeyEvent`, the function Android actually calls · **X8** **implement the documented `modifier_state` validation** in [`km_core_processevent_api.cpp`][cpe] — one funnel, four platforms, no API bump · **X9** fix the `KM_CORE_MODIFIER_NOCAPS` documentation (it is documented as valid but breaks rule matching) · **X10** extend the `c keys:` grammar with explicit modifier down/up so the shared fixtures can express this bug class, and wire `capsLock:` into the web harness.
 
 **Investigations** *(recorded in [TODO.md] alongside I1-I12)* — `[ ]` **I13** does `fakefreeze` reproduce on a clean VM? Direct test of §1; a null result here means something else differs and is worth knowing · **I14** which emitter latched the prefix VK? [TODO I11][todo] measured 1/116, but the wire capture saw every prefix KEYDOWN matched, so it caught only the atomic path ([`keybd_sendprefix`][kbsp]); [`PostDummyKeyEvent`][pdke] uses two separate `keybd_event` calls and is not atomic. · **I15** does Ross's focus-change observation answer **I3** (the stall source)? See [MEETING-PREP.md](MEETING-PREP.md) §2.
 
-**Gates** — `[ ]` **T11** `keyman32/build.sh --debug configure build test:x64` and `test:x86` green except deliberate reds · **T12** `/windows/build.sh test` still cascades · **T13** manual app reproduces per §1 and agrees event-for-event with [`logs/`](logs/).
+**Gates** —
+
+- `[x]` **T11** `keyman32/build.sh --debug test:x64` and `test:x86` green except deliberate reds. **GREEN on both, MEASURED 2026-08-26**: 19/19 x86, 18/18 x64, one `DISABLED_`. Drop `configure` from the command — see §1 blocker 2. **[WARN] The ARM64 leg is unbuilt**, for want of ARM64 MSVC libraries on this machine; `keybd_shift.cpp` has no architecture guard and the new declaration sits outside the `_WIN64` region, so it *should* compile, but that is inference and CI or an ARM64 toolset must confirm it.
+- `[ ]` **T12** `/windows/build.sh test` still cascades. **Not fully verifiable on this machine**: the support cascade fails at **`oskbulkrenderer`**, a Delphi project, because Delphi is not installed — and it fails before `fakefreeze` is reached. Environmental, not a defect in this work. `./windows/src/support/build.sh --debug test:fakefreeze` on its own is exit 0, and `:support` is a child of `windows/src/build.sh:26`, so the wiring is right. Needs CI or a Delphi machine.
+- `[ ]` **T13** manual app reproduces per §1 and agrees event-for-event with [`logs/`](logs/). **Not yet run.** The README-driven procedure is committed; nobody has executed it end to end against a wedged Keyman and cross-checked the captures.
 
 ---
 
 ## 7. Conventions
 
-Branch `<type>/<scope>/<issue>-<slug>` ([`prepare-commit-msg:56`][pcm]) — a matching name auto-fills the commit prefix and `Fixes:` trailer. Commits `test(windows): …` / `chore(windows): add …`, imperative, no trailing period, trailers after a blank line; types and scopes hook-enforced from [`resources/scopes/`][scopes]. C++ per [`.clang-format`][cf] — 2-space, `ColumnLimit: 130`, attached braces, `PointerAlignment: Left`. A test-only PR normally needs no user test ([CONTRIBUTING][contrib]); the manual app's README serves as one.
+Branch `<type>/<scope>/<issue>-<slug>` ([`prepare-commit-msg:56`][pcm]) — a matching name auto-fills the commit prefix and `Fixes:` trailer. Commits `test(windows): …` / `chore(windows): add …`, imperative, no trailing period, trailers after a blank line; types and scopes hook-enforced from [`resources/scopes/`][scopes]. C++ per [`.clang-format`][cf] — 2-space, `ColumnLimit: 130`, attached braces, `PointerAlignment: Left`. A test-only PR normally needs no user test ([CONTRIBUTING][contrib]); the manual test's README serves as one.
 
-**Out of scope:** the Cache A fix itself ([TODO D1/D2][todo] — repro and analysis only, per direction 2026-08-23); the Core API change (§5.4); any FieldWorks-based testing.
+**As applied.** Branch `fix/windows/8064-reconcile-modifier-cache`, on `origin/master` @ `deeff0456f` — upstream `keymanapp/keyman`, not the fork's `master`. The four commit subjects, in order:
+
+| commit | subject |
+|---|---|
+| `204e63493b` | `test(windows): characterise phantom modifier re-press in serial key event server` |
+| `a26aa611b5` | `fix(windows): reconcile cached modifier state with the OS before injecting` |
+| `5274fec612` | `chore(windows): add a build entry point for the fakefreeze support tool` |
+| `78a0c22edc` | `test(windows): add manual test for the stuck modifier phantom KEYDOWN` |
+
+The branch is **not pushed** and **no PR is open**; [#8064][i8064] has not been commented on. [MEETING-PREP.md](MEETING-PREP.md) is still the brief and the issue is still Ross's.
+
+**Out of scope:** ~~the Cache A fix itself ([TODO D1/D2][todo] — repro and analysis only, per direction 2026-08-23)~~ — **SUPERSEDED by direction 2026-08-26**, which is that the fix was to be written, tested and made minimal. It has been: `a26aa611b5`, D1, 64 lines across 3 files. The original direction is left visible because it is why every document in this repo before [`IN-TREE.md`](IN-TREE.md) stops at analysis, and reading them without it makes them look incomplete rather than scoped. Still out of scope, unchanged: the Core API change (§5.4); any FieldWorks-based testing.
 
 ---
 

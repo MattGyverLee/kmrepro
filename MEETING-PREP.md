@@ -74,6 +74,8 @@ Note the last row: this repo's own finding that the watchdog is not the mechanis
 | **All keystrokes are injected** (`keybd_event`) | acknowledged | Keyman *can* distinguish synthetic keys (`LLKHF_INJECTED`, and the `dwExtraInfo`/`SCAN_FLAG_KEYMAN_KEY_EVENT` checks). Physical AltGr was verified separately and matched, but only on that path |
 | **I5 — does Cache A exist in the 64-bit engine?** | open, inference only | `serialkeyeventserver.cpp` is `#ifndef _WIN64`. Coverage claims depend on this |
 | **I12 — the latch set accumulates within a session** | open, 4 hypotheses killed | Not a timer, not focus-change resync. Only a new process cleared it. Do not offer a mechanism |
+| **The ARM64 leg of the fix is unbuilt** | open | No ARM64 MSVC libraries on the dev machine. `ReconcileModifierCache` has no architecture guard and the declaration sits outside the `_WIN64` region, so it should compile — but say "should", not "does". CI or an ARM64-toolset machine owes the answer. [`IN-TREE.md`](IN-TREE.md) §6 |
+| **The fix is preventive, not curative** | by design, and worth volunteering | It stops the latch forming; it cannot recover a process already latched, because by then the modifier is genuinely held and cache and OS agree. Offer this before a reviewer finds it. [`IN-TREE.md`](IN-TREE.md) §3 C-2 |
 | **One machine, one Windows build, one Keyman build** | — | Say it before they do |
 | **The summary table inside `logs/mods-prefix-latch-evidence.txt`** | stale | It is the pre-`self`-column version and shows the immune keys as "2/2 latched" from §2c residue. The per-trial lines above it are correct; quote [MODIFIERS.md] §2b rather than that table |
 | **I7 — hardware with no physical Right Ctrl** | partly answered | This dev machine *is* that class — on the user's report, corroborated by a wire capture that shows only `LCTRL` taps. Do not say "confirmed at the wire": no capture can prove a key is absent. Field hardware still owed |
@@ -86,7 +88,7 @@ Note the last row: this repo's own finding that the watchdog is not the mechanis
 - **Build:** Delphi 10.3/11 + VS 2022 v143 with x86/x64/ARM64 toolchains are required to build and run the suite locally. If you cannot build it, say so early rather than proposing tests you cannot run.
 - **[#16423][i16423] is labelled `user-test-required`** and `has-user-test`. It is a PR-shaped issue and is not merged. Know its state before referencing it.
 - **[`RightAltEmulationCheck.tests.cpp`][raec] has not run since 2025-12-09** — dropped from `<ClCompile>` by merge `4ac24f7b7b`. This is a live finding, independent of everything else, and is a goodwill fix.
-- **[`fakefreeze`][ff] has no `build.sh`**, so `./windows/build.sh` never produces it. Marc wrote it; he will know it exists. The gap is that nobody else can.
+- **[`fakefreeze`][ff] had no `build.sh`**, so `./windows/build.sh` never produced it and nobody but Marc could run the stimulus. **Fixed 2026-08-26** — `build.sh` added and `:fakefreeze` registered in `support/build.sh`, modelled on `etl2log` rather than the unregistered `wow64kbd`. Marc wrote the tool and will know it exists; the ask is now review, not authorship. [`IN-TREE.md`](IN-TREE.md) §5.
 
 ---
 
@@ -108,11 +110,28 @@ Note the last row: this repo's own finding that the watchdog is not the mechanis
 
 ## 7. What to ask for
 
+Reordered 2026-08-26: three of the five original asks are now deliverables rather than
+requests, so lead with the review and keep the questions that are still open.
+
 1. Confirm **#8064 is the home** for this evidence.
-2. `build.sh` for [`fakefreeze`][ff] so the stimulus is reachable by anyone — [TEST-PLAN.md] **P0**.
-3. Agreement on the two red tests (**T-R1**, **T-R2**) landing in the `keyman32` gtest suite.
-4. Ross's `test3_lowlevel.xlsx` timeline cross-checked against `logs/` — do his field logs and this repo's wire captures show the same event shape?
-5. A decision on the Cache A fix ([TODO][todo] **D1**/**D2**), which is currently deferred by direction, not by analysis.
+2. **Review the branch.** `fix/windows/8064-reconcile-modifier-cache`, four commits off upstream
+   `master` @ `deeff0456f`: the defect characterised in the `keyman32` gtest suite, the Cache A fix
+   ([TODO][todo] **D1**), a `build.sh` for [`fakefreeze`][ff] ([TEST-PLAN.md] **P0**), and a manual
+   test. `test:x86` 19/19, `test:x64` 18/18, both engine DLLs link clean; production diff is 64
+   lines across 3 files. Full record in [`IN-TREE.md`](IN-TREE.md).
+   - Volunteer the three judgement calls rather than waiting to be asked: registering
+     `:fakefreeze` puts it in CI's path and the narrower alternative is one line away; the ARM64 leg
+     is unbuilt; and the fix is preventive, not curative.
+3. Ross's `test3_lowlevel.xlsx` timeline cross-checked against `logs/` — do his field logs and this
+   repo's wire captures show the same event shape? **Still the highest-value open question**, because
+   it is the nearest thing to a field trigger for **I3**.
+4. **I3** — does his focus-change observation explain what stalls the thread in the field? The fix
+   makes the consequence harmless; it does not explain the cause, and nothing here does.
+5. **I5** — does Cache A exist in the 64-bit engine? Still inference. The fix inherits the question
+   rather than settling it: its call site is inside `#ifndef _WIN64`, exactly as the server is.
+6. Note that **T-R1** and **T-R2** are Cache B, not Cache A — they belong to the Caps Lock defect
+   and its own pull request, [#16423][p16423], not to this branch. Do not let the two be merged in
+   discussion; that conflation is what kept #8064 open.
 
 ---
 
@@ -123,6 +142,7 @@ Note the last row: this repo's own finding that the watchdog is not the mechanis
 [todo]: TODO.md
 [README.md]: README.md
 [tp]: TEST-PLAN.md
+[p16423]: https://github.com/keymanapp/keyman/pull/16423
 
 [i8064]: https://github.com/keymanapp/keyman/issues/8064
 [i1620]: https://github.com/keymanapp/keyman/issues/1620

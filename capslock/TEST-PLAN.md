@@ -19,11 +19,31 @@ Identical to the parent plan — see [`../TEST-PLAN.md`](../TEST-PLAN.md) §3.1.
 is no elevation, no TSF and no installed Keyman. Run with:
 
 ```bash
-./windows/src/engine/keyman32/build.sh --debug configure build test:x64
+./windows/src/engine/keyman32/build.sh --debug test:x86
+./windows/src/engine/keyman32/build.sh --debug test:x64
 ```
+
+> **Corrected 2026-08-26, by running it** — see [`../IN-TREE.md`](../IN-TREE.md) §1.
+> Do **not** include the `configure` action: it pulls the `@/core:win` dependency,
+> which builds core for arm64 and dies with `LNK1104: cannot open file
+> 'libcpmtd.lib'` on a machine without the ARM64 MSVC libraries. `test:x86` and
+> `test:x64` do not trigger it. The gtest NuGet package does need a one-time
+> `msbuild.exe tests/keyman32.tests.vcxproj -t:Restore -p:RestorePackagesConfig=true`,
+> which is the only thing `configure` was wanted for here.
+
+Three further traps in this suite, all measured while landing the Cache A tests:
 
 > **The vcxproj has no glob** — every test `.cpp` must be listed in
 > `<ClCompile>`. See the parent plan's **P1**.
+>
+> **Do not use `SCOPED_TRACE`.** `tests/gtest_main.cpp` installs a
+> `_CrtMemCheckpoint` / `_CrtMemDifference` leak detector that fails any passing
+> test whose allocations do not balance, and gtest 1.8.1's `ScopedTrace` retains
+> its trace-stack vector capacity after the scope exits — reported as a 168-byte
+> leak. Use per-assertion `<<` messages instead.
+>
+> **Warnings are errors** (`C2220`) in `keyman32.vcxproj`. An unreferenced
+> parameter is enough to fail the build.
 
 ---
 

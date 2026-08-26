@@ -92,8 +92,8 @@ evidence rather than replacing it.
 
 ### 2b. The gate — "no Keyman keyboard was active" does not exclude Keyman
 
-The modifier post at `k32_lowlevelkeyboardhook.cpp:198` sits **35 lines before**
-the `!isKeymanKeyboardActive` pass-through at `:233`, and does not consult it. So
+The modifier post at `k32_lowlevelkeyboardhook.cpp:198` sits **31 lines before**
+the `!isKeymanKeyboardActive` pass-through at `:229`, and does not consult it. So
 the cache is charged on *every* modifier keystroke on the machine, whichever
 keyboard is active, while it is only *consumed* when a Keyman keyboard is active.
 Measured **3/3** — charge while a Microsoft layout is active, fire on switching
@@ -167,7 +167,7 @@ before anyone else does.
 | **Load is not the mechanism** | 32 CPU hogs on 16 cores: **0/10**. Freeze alone at zero load: **10/10** | `../TEST-PLAN.md` §1. This is why it never reproduced on a clean VM |
 | **Scope, with negative controls.** Which keys can actually latch | exactly six — L/R Shift, Ctrl, Alt, all 2/2 (Ctrl 7/7 per side). Insert / NumLock / CapsLock / ScrollLock **0/2** under the identical stimulus | `../MODIFIERS.md` §2b |
 | **Blast radius is machine-wide**, not Keyman-only | once latched, every keyboard and every application is affected; `Ctrl+A` arrives as `Ctrl+Shift+A`, and `GetAsyncKeyState` agrees the key is held | `../TRIGGER.md` §3 |
-| **The cache is charged while no Keyman keyboard is active** | **3/3.** The modifier post at `k32_lowlevelkeyboardhook.cpp:198` sits 35 lines *before* the `!isKeymanKeyboardActive` pass-through at `:233` and does not consult it | `../TRIGGER.md` §3, `kmproof.ps1 -ChargeTest`. **This is what makes his Edge and Excel scenarios defensible (§2b)** |
+| **The cache is charged while no Keyman keyboard is active** | **3/3.** The modifier post at `k32_lowlevelkeyboardhook.cpp:198` sits 31 lines *before* the `!isKeymanKeyboardActive` pass-through at `:229` and does not consult it (figures corrected 2026-08-26 against upstream `master` @ `deeff0456f`; see `../IN-TREE.md` §3 C-7) | `../TRIGGER.md` §3, `kmproof.ps1 -ChargeTest`. **This is what makes his Edge and Excel scenarios defensible (§2b)** |
 | **The phantom KEYDOWN, on the wire** | not inferred from logs — captured by a `WH_KEYBOARD_LL` hook during a live trial | `../MODIFIERS.md` §2a-wire |
 | **A stuck Ctrl reads CLEAN to a text oracle** | RCTRL latched while the text probe returned correct lowercase; a latched Alt empties the probe entirely | `../MODIFIERS.md` §2b. **This is why careful testers saw nothing — and why the field sample is all Shift (§2a)** |
 

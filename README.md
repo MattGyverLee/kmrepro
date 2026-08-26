@@ -14,7 +14,13 @@ into FieldWorks, but the defect is system-wide and needs nothing but Notepad to
 reproduce; FieldWorks testing is out of scope.
 
 Companion Keyman checkout: `../keyman`, branch
-`fix/windows/16422-caps-lock-state-on-keyboard-switch`.
+`fix/windows/8064-reconcile-modifier-cache` (based on upstream `master` @ `deeff0456f`).
+
+> **The fix has landed in that branch.** As of 2026-08-26 this repo is no longer analysis-only:
+> Cache A is re-validated against the OS before every injected batch, the defect and the fix are
+> both asserted by tests inside Keyman's own gtest suite, and the stall stimulus is buildable
+> through the standard builder. See **[IN-TREE.md](IN-TREE.md)** for what shipped, on what evidence,
+> and for the eleven corrections that session made to the analysis in this repo.
 
 ## Upstream issue
 
@@ -35,20 +41,27 @@ from AltGr), [#4884][i4884], [#7337][i7337] (2022 — the commit that created th
 cache feed), [#15179][p15179]/[#15219][p15219] (2025 hook watchdog, which
 mcdurdin has already noted did not resolve it).
 
-The **Caps Lock / un-read-state** defect ([#16422][i16422] / [#16423][i16423]) is
+The **Caps Lock / un-read-state** defect ([#16422][i16422], PR [#16423][i16423]) is
 a *different bug* that was explored here too. It has been split out to
 **[`capslock/`](capslock/README.md)** — same staleness shape, different cache,
 different symptom, no phantom keypress.
 
+It is **already its own pull request on its own branch**, and it is out of scope for the
+#8064 branch: that one is based on `origin/master`, not on
+`fix/windows/16422-caps-lock-state-on-keyboard-switch`, so none of PR #16423's commits are
+ancestors of it. The only Caps Lock references there are negative controls asserting the
+boundary between the two defects. See [IN-TREE.md](IN-TREE.md).
+
 Plan for porting this into Keyman's own test structures:
-**[TEST-PLAN.md](TEST-PLAN.md)**.
+**[TEST-PLAN.md](TEST-PLAN.md)** — the Cache A parts of which are **done**; see
+**[IN-TREE.md](IN-TREE.md)**.
 
 [i8064]: https://github.com/keymanapp/keyman/issues/8064
 [i1620]: https://github.com/keymanapp/keyman/issues/1620
 [i4884]: https://github.com/keymanapp/keyman/issues/4884
 [i7337]: https://github.com/keymanapp/keyman/issues/7337
 [i16422]: https://github.com/keymanapp/keyman/issues/16422
-[i16423]: https://github.com/keymanapp/keyman/issues/16423
+[i16423]: https://github.com/keymanapp/keyman/pull/16423
 [p15179]: https://github.com/keymanapp/keyman/pull/15179
 [p15219]: https://github.com/keymanapp/keyman/pull/15219
 
@@ -72,8 +85,8 @@ happens to correct the cache.
 Two consequences that took the longest to establish:
 
 - **The damage is charged even when no Keyman keyboard is active.** The modifier
-  post at `k32_lowlevelkeyboardhook.cpp:198` runs 35 lines *before* the
-  `!isKeymanKeyboardActive` pass-through at `:233` and does not consult it. So
+  post at `k32_lowlevelkeyboardhook.cpp:198` runs 31 lines *before* the
+  `!isKeymanKeyboardActive` pass-through at `:229` and does not consult it. So
   "no Keyman keyboard was active, therefore Keyman is uninvolved" is false
   reasoning — and it is exactly the reasoning that kept getting applied.
 - **Only six keys are in scope**, and Right Ctrl is the worst case. See
@@ -83,7 +96,13 @@ Two consequences that took the longest to establish:
 
 | claim | standing |
 |---|---|
-| The mechanism, as described above | **proven from code, and reproduced 3/3** |
+| The mechanism, as described above | **proven from code, reproduced 3/3, and now asserted by a test inside Keyman.** `KEYBD_SHIFT.ResetRepressesFromCache` takes one stale byte and shows the unmatched KEYDOWN, on unmodified production code. `IN-TREE.md` §2 |
+| **The fix works** | **implemented, compiled, tested, committed.** `ReconcileModifierCache` at the top of `PrepareInjectedInput`; `test:x86` 19/19, `test:x64` 18/18, both engine DLLs link clean. 64 production lines across 3 files. `IN-TREE.md` §2 |
+| **The Keyman gtest suite is buildable on this machine** | **established 2026-08-26.** Every earlier document here was written against a checkout where nothing had been through a compiler. Two blockers, both solvable: a one-time NuGet restore, and avoiding `build.sh configure` (it builds core for arm64 and dies on missing ARM64 MSVC libs). `IN-TREE.md` §1 |
+| The phantom is re-pressed **per output batch**, not per keystroke | **corrected 2026-08-26.** `keybd_shift` has exactly two call sites repo-wide, both in `PrepareInjectedInput`, reached only on `WM_USER`. The symptom is unchanged — plain replays arrive shifted once the phantom lands — but the stronger claim is false and must not go in a PR. `IN-TREE.md` §3 C-1 |
+| The fix is **preventive, not curative** | **established 2026-08-26.** Once the phantom KEYDOWN has been sent the modifier is genuinely held, cache and OS agree, and no `GetAsyncKeyState` check can still see the fault. Batch start is the last point at which prevention is possible — and it cannot recover an already-latched process. `IN-TREE.md` §3 C-2 |
+| Cache A is fed by Keyman's **own** synthetic modifier events | **proven from code 2026-08-26.** The post at `k32_lowlevelkeyboardhook.cpp:198` does not exclude them; release drives the byte to 0 and reset drives it back to 0x80 every batch. The fix works with that loop, and it is why filtering Keyman's markers is unnecessary here. `IN-TREE.md` §3 C-10 |
+| A watchdog-driven reconcile would help | **NO — refuted 2026-08-26.** `ISerialKeyEventServer::GetServer()` is `NULL` in every process but keyman.exe, and there the GetMessage hook sees only keyman.exe's own keystrokes. Dropped from the fix. `IN-TREE.md` §3 C-3 |
 | It is Keyman, not the layout / Windows / the harness | **measured.** Three-arm controlled test: US 0/10, Microsoft Cameroon QWERTY 2017 0/10, Keyman wedged. `TRIGGER.md` §3 |
 | The wedge is charged while a non-Keyman keyboard is active | **measured 3/3** (`kmproof.ps1 -ChargeTest`) |
 | Blast radius is machine-wide, not Keyman-only | **measured** |
@@ -99,7 +118,7 @@ Two consequences that took the longest to establish:
 | AltGr is the seed for a stuck **Right** Ctrl | **NO, on this machine — MEASURED 2026-08-25, physically, on all three arms.** MSKLC is the only arm setting `KLLF_ALTGR`, and all 22 physical AltGr presses paired with a **non-extended LEFT Ctrl** (44/44 carrying Windows' `scan=0x21D` fake-Ctrl marker). The Keyman arm emits no Ctrl at all — its US base layout lacks the flag. Affected field hardware is now the only gap. `MODIFIERS.md` §3d-measured, `TODO.md` I1 |
 | The dev machine is itself the no-Right-Ctrl hardware class | **established 2026-08-25, on the user's report** — corroborated by the wire capture (seven Ctrl taps, all `LCTRL`), which cannot by itself prove a key's absence. So §3b's "the workaround is unavailable to the user" is a direct observation here rather than an extrapolation. `MODIFIERS.md` §3b |
 | Keyman's serializer replays keystrokes on non-Keyman layouts | **NO — measured 2026-08-25.** The Keyman arm doubled every keystroke with a `KM-SERIALIZED` replay; the MSKLC arm produced zero across 102 events. Holds alongside the charge-test row above — charging the wedge is not the same act as replaying a key, so do not read this as "Keyman is inert on other layouts". `MODIFIERS.md` §3d-measured |
-| **What stalls the thread in the field** | **NOT established.** The stall is induced deliberately; CPU load alone did not reproduce it (32 hogs / 16 cores, 0/10). This is the main open gap — `TODO.md` I3. Ross's focus-change observation is the best lead, see `issue-8064/README.md` §2. Note the stimulus is **not** debug-only: the handler is an ungated `Sleep(5000)` and already ships as `fakefreeze`; it simply has no `build.sh` |
+| **What stalls the thread in the field** | **NOT established.** The stall is induced deliberately; CPU load alone did not reproduce it (32 hogs / 16 cores, 0/10). This is the main open gap — `TODO.md` I3. Ross's focus-change observation is the best lead, see `issue-8064/README.md` §2. Note the stimulus is **not** debug-only: the handler is an ungated `Sleep(5000)` and already ships as `fakefreeze` — which **now has a `build.sh` and is registered in `support/build.sh`**, so `./windows/build.sh` reaches it and a second person can run the repro. `IN-TREE.md` §5 |
 | **Whether Cache A exists in the 64-bit engine** | **NOT established — inference only.** `serialkeyeventserver.cpp` is wrapped `#ifndef _WIN64` (`:7`/`:595`). The working assumption is that keyman.exe is 32-bit, hosts the single server, and its `SendInput` reaches 64-bit hosts like any other injected input — which is what makes the "machine-wide" and "blast radius" rows above cover 64-bit apps. **That step is unverified.** `TODO.md` I5 |
 | The hypothesis this started from — that 18.0.245's `LowLevelHookWatchDog` tears the hook out and reinstalls it | **NOT SUPPORTED, and retracted.** Every reproduction in this repo was obtained with the watchdog's hook-reinstall never provoked at all: `kmproof.ps1` 3/3 on candidate I and 10/10 on the sweep, `kmmods.ps1` six slots 2/2. The freeze alone is sufficient; provoking the hook reinstall is not required at all. This agrees with mcdurdin's own note on #8064 that the watchdog PRs probably did not resolve it |
 
@@ -112,12 +131,13 @@ Start here and stop when you have what you need.
 | doc | what it is |
 |---|---|
 | **`issue-8064/README.md`** | **Read first.** This is #8064 and it is Ross's. His field evidence, the crosswalk against these findings, the two questions to ask him, and the ordered path to closing the issue. |
+| **`IN-TREE.md`** | **Read second, and before trusting any code claim in the older docs.** What has actually landed in Keyman, the build environment that made it possible, the eleven corrections that session made to the analysis here, and the three test-plan risks it turned from reasoning into measurement. The only document in this repo describing compiled, executed, committed work. |
 | **`TRIGGER.md`** | The full write-up: plain-language description, the defect chain with code refs, the reproduction, and **§3, the three-arm controlled proof**. Also carries the hard-won harness traps — read those before writing any test here. |
 | **`MODIFIERS.md`** | Which modifier keys are actually in scope. Rules Win, Fn, Scroll Lock and Insert out; explains phantom Right Ctrl on hardware that has no such key; separates the two independent caches. |
 | **`FIX-PROPOSAL.md`** | Proposed fixes in order of value, with the caveats not to overstate in a PR. |
 | **`HAZARDS.md`** | **Read before writing or changing harness code.** Five ways to break the target rather than mis-measure it — extended navigation keys, PowerShell name collisions, the HKL focus thread, `dwExtraInfo = 0`, the version read. |
 | **`TODO.md`** | Working list: investigations, deferred Cache A work, harness gaps, test gates, and suggested order. The Cache B fixes moved to [`capslock/TODO.md`](capslock/TODO.md). |
-| **`TEST-PLAN.md`** | Plan for porting these findings into Keyman's own test structures: the repro recipe, the gtest and manual-test deliverables, and the cross-platform prevention work. Companion: `MEETING-PREP.md`. |
+| **`TEST-PLAN.md`** | Plan for porting these findings into Keyman's own test structures: the repro recipe, the gtest and manual-test deliverables, and the cross-platform prevention work. The Cache A gtests, the manual test and the `fakefreeze` build entry point are **done** — `IN-TREE.md` records what shipped; the cross-platform work (X1-X10) and the `NormalizeModifierVk` seam are still open. Companion: `MEETING-PREP.md`. |
 | **`capslock/`** | The separate Caps Lock / Cache B defect (#16422 / #16423). |
 
 ---
@@ -131,7 +151,7 @@ modifier. `kmaltgr` reads the wire underneath both.
 
 | script | role |
 |---|---|
-| **`kmproof.ps1`** | **Attribution.** Three-arm controlled test — US / MSKLC / Keyman, one stimulus, only the active keyboard varies. This is what supports the "it is Keyman" claim. Modes include `-ChargeTest` (charge while inactive, fire on activation) and `-Sweep` (separate Keyman-only causation from machine-wide blast radius). Exercises **LShift and RAlt only**. |
+| **`kmproof.ps1`** | **Attribution.** Controlled cross-keyboard test — English / MSKLC / Keyman, one stimulus, only the active keyboard varies. The English arm is any non-Dvorak English QWERTY (US, UK, Australian, …) and MSKLC is optional, so a reviewer needs only an English keyboard plus the Keyman one. This is what supports the "it is Keyman" claim. Modes include `-ChargeTest` (charge while inactive, fire on activation) and `-Sweep` (separate Keyman-only causation from machine-wide blast radius). Exercises **LShift and RAlt only**. |
 | **`kmmods.ps1`** | **Scope.** Which of the thirteen candidate keys can actually be stuck. Same stimulus applied to each of the six Cache A slots *and* to Insert / Win / Apps / NumLock / CapsLock / ScrollLock as negative controls, so `MODIFIERS.md` §2 stops being inference. Carries the modifier-agnostic **state oracle** (`GetAsyncKeyState`) that `kmproof`'s case-change oracles cannot provide, which is what makes Ctrl measurable at all. `-Latch <MOD>` is the missing-key permanence arm. Covers `TODO.md` H1, H2 and H3. |
 | **`kmaltgr.ps1`** | **Wire-level logger.** A `WH_KEYBOARD_LL` hook recording `vkCode` / `scanCode` / `flags` / `dwExtraInfo` for every event on the machine, with the hook and message pump in C# so the callback cannot exceed `LowLevelHooksTimeout`. Decodes Keyman's two markers (`scan 0xFF` = synthesized, `extraInfo 0x4B4D0000` = serializer replay) and Windows' AltGr fake-Ctrl marker (`scan 0x21D`). Built for `TODO.md` I1; it also captured `keybd_shift_reset`'s unmatched KEYDOWN directly. **Logs every keystroke while running — do not type passwords.** |
 
@@ -220,6 +240,13 @@ physically have; see `MODIFIERS.md` §3b.
 ---
 
 ## Before you write a test here
+
+This section is about the **PowerShell harnesses in this repo**. Tests written
+inside the Keyman tree have a different and non-overlapping set of traps — gtest
+1.8.1 with no `GTEST_SKIP()` and no gmock, a `_CrtMemDifference` leak detector
+that fails on `SCOPED_TRACE`, warnings compiled as errors, and a test project
+with no glob so an unlisted file silently never runs. Those are in
+[`TEST-PLAN.md`](TEST-PLAN.md) and [`IN-TREE.md`](IN-TREE.md).
 
 `TRIGGER.md` has the full list of measurement traps; `HAZARDS.md` covers the
 ways you can break the target rather than mis-measure it. The four below have

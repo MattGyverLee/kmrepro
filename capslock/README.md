@@ -67,5 +67,5 @@ of tests land in the same [`keyman32` gtest suite][tests].
 
 [#8064]: https://github.com/keymanapp/keyman/issues/8064
 [#16422]: https://github.com/keymanapp/keyman/issues/16422
-[#16423]: https://github.com/keymanapp/keyman/issues/16423
+[#16423]: https://github.com/keymanapp/keyman/pull/16423
 [tests]: https://github.com/keymanapp/keyman/tree/master/windows/src/engine/keyman32/tests

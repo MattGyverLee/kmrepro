@@ -11,6 +11,15 @@ Lock, Win, Fn, Insert? And in particular:
 in §3. Code refs are from `fix/windows/16422-caps-lock-state-on-keyboard-switch`
 at `a70538106c`, paths relative to `windows/src/engine/keyman32/`.
 
+**Re-checked 2026-08-26 against upstream `origin/master` @ `deeff0456f`, and every
+code claim in this document held** ([`IN-TREE.md`](IN-TREE.md) §3). Two things
+changed as a result, and both are marked where they occur: one mechanism claim was
+over-strong (the phantom's *cadence* — see §3a and §3c), and several claims that
+were "proven from code by reading" are now **asserted by tests that run** in the
+Keyman tree, on the branch `fix/windows/8064-reconcile-modifier-cache`
+(`windows/src/engine/keyman32/tests/keybd_shift.tests.cpp`). Those upgrades are
+noted inline. No measurement in this document is affected by either.
+
 ---
 
 ## 1. There are two separate caches, not one
@@ -32,6 +41,10 @@ Cache A is the dangerous one, because it is not merely consulted — it is
 **re-asserted as real key events** by `keybd_shift_reset()`. Cache B only makes
 Keyman mis-map; Cache A makes the whole machine behave as if a key were held.
 
+**The cadence of that re-assertion is per queued output batch, not per keystroke.**
+Stated here because it is the easiest thing in this document to get wrong; the
+call-graph proof is in §3a.
+
 ---
 
 ## 2. Exactly six keys are in scope for the phantom-press bug
@@ -51,6 +64,19 @@ both `keybd_shift_release` / `keybd_shift_reset` iterate the same hardcoded six:
 ```c
 const BYTE modifiers[6] = { VK_LMENU, VK_RMENU, VK_LCONTROL, VK_RCONTROL, VK_LSHIFT, VK_RSHIFT };
 ```
+
+**And as of 2026-08-26 it is asserted by a test that runs, not only by reading.**
+`K32LowLevelKeyboardHook.IsModifierKeyAcceptsExactlyNineVks`
+(`tests/keybd_shift.tests.cpp`) sweeps all 256 virtual keys, asserts that exactly
+**nine** are accepted, asserts each of the nine by name, and asserts the rejection
+of `VK_CAPITAL`, `VK_NUMLOCK`, `VK_SCROLL`, `VK_INSERT`, `VK_LWIN`, `VK_RWIN` and
+`VK_APPS` — the four immune keys of §2b plus the Win/Apps row of the table below.
+Its failure message says why it exists: *"the accepted virtual key set changed; the
+cache's six slots depend on it"*. **x86 only** — the enclosing region of
+`k32_lowlevelkeyboardhook.cpp` is `#ifndef _WIN64`, so the test is guarded the same
+way and compiles out of the x64 run rather than breaking its link. Landed on
+`fix/windows/8064-reconcile-modifier-cache`; `test:x86` 19/19,
+`test:x64` 18/18 ([`IN-TREE.md`](IN-TREE.md) §2).
 
 So the scope boundary is provable from code, not inferred:
 
@@ -96,6 +122,13 @@ Not inferred from a stale cache, not deduced from typed output — the unmatched
 KEYDOWN, on the wire, with Keyman's own `SCAN_FLAG_KEYMAN_KEY_EVENT` (`0xFF`,
 `keyman64.h:132`) stamped on it. This is the single most direct piece of evidence
 in the repo and it should be what a PR description leads with.
+
+**Read the two `0xFF` KEYDOWNs as two output batches, not two keystrokes.** The
+`10845.6` and `13962.4` re-presses are 3.1 s apart, which is the harness's trial
+pacing and not a typing rate. `keybd_shift_reset` is only reached from
+`PrepareInjectedInput`, i.e. once per queued batch — the call graph is in §3a. The
+capture proves the unmatched KEYDOWN; it does not measure a cadence, and it must
+not be quoted as if it did.
 
 ### Two markers worth knowing, both confirmed against source
 
@@ -190,6 +223,12 @@ Shift it takes the trouble to set `scan = SCANCODE_RSHIFT` explicitly, while for
 Ctrl and Alt it leaves `0xFF` and relies purely on `KEYEVENTF_EXTENDEDKEY`. That
 asymmetry is unexplained and still worth asking about, but the measurement says
 it is not currently producing a wrong-side latch.
+
+**Both halves of that asymmetry are now asserted in the Keyman tree** —
+`KEYBD_SHIFT.RightControlCollapsesToExtendedControl` and
+`KEYBD_SHIFT.RightShiftCollapsesToShiftWithRightScanCode`, 2026-08-26. Tabulated in
+§3a. They pin the behaviour without explaining it: *why* Shift is the exception is
+still open, but it can no longer change without a test going red.
 
 ---
 
@@ -342,6 +381,18 @@ ends in `default: return;` (`:578`). There is no path by which a letter or a
 digit reaches Cache A or `keybd_shift_reset`. **A stuck letter is not this bug**,
 and a field report of one should not be filed against it.
 
+**Now also asserted by a test in the Keyman tree, 2026-08-26.**
+`RECONCILE_MODIFIER_CACHE.LeavesNonModifierBytesAlone`
+(`tests/keybd_shift.tests.cpp`) asserts that bytes outside the six slots are left
+untouched whatever the OS reports — the negative-space counterpart to this
+subsection, stated as an assertion rather than as prose. It was not in
+`TEST-PLAN.md`; it exists because this paragraph does
+([`IN-TREE.md`](IN-TREE.md) §5). Note the direction of what it covers: it guards
+the *fix* against touching a letter's byte. The reading above — that nothing ever
+puts a letter *into* Cache A — is still the code argument, and
+`K32LowLevelKeyboardHook.IsModifierKeyAcceptsExactlyNineVks` (§2) is what asserts
+that half.
+
 ### But there is a second unmatched-KEYDOWN path, and it takes any VK
 
 `kmprocess.cpp:181-182`, in the `use(final)` default-output path:
@@ -415,8 +466,28 @@ provably **not** hardware and provably **not** self-healing.
 ### 3a. The press is synthesized in software
 
 `keybd_shift_reset()` (`keybd_shift.cpp:161-176`) emits, for every byte in Cache A
-sitting at `0x80`, a KEYDOWN **with no matching KEYUP**. For `VK_RCONTROL`,
-`do_keybd_event()` (`keybd_shift.cpp:68-72`) rewrites it:
+sitting at `0x80`, a KEYDOWN **with no matching KEYUP**.
+
+**How often — proven from the call graph, 2026-08-26.** `keybd_shift` has
+**exactly two call sites in the entire repository** —
+`serialkeyeventserver.cpp:388` (release) and `:399` (reset) — both inside
+`PrepareInjectedInput`, whose only caller is `ProcessQueuedKeyEvents()` (`:353`),
+whose only caller is `WndProc` under `if (msg == WM_USER)` (`:417-419`). So the
+phantom is re-pressed **once per queued output batch — whenever a Keyman rule
+produces output — and not once per keystroke.** Plain keystrokes travel the
+`WM_KEYMAN_KEY_EVENT` path (`:440+`), which calls `SendInput` directly and never
+touches `keybd_shift` at all.
+
+**[WARN] Do not write "re-pressed on every keystroke" in a PR or an issue comment.** It
+is the natural thing to say and it is false; a reviewer who checks the call graph
+will find it so ([`IN-TREE.md`](IN-TREE.md) §3 C-1). **The user-visible symptom is
+unchanged by the correction:** once the phantom KEYDOWN has landed, *those* plain
+`WM_KEYMAN_KEY_EVENT` replays arrive shifted, which is why the symptom reads as
+per-keystroke even though the re-press is not. The same fact is what makes a
+batch-start fix complete rather than partial — one statement at the top of that one
+function covers **100 %** of the phantom-press surface. See `TODO.md` **D1**.
+
+For `VK_RCONTROL`, `do_keybd_event()` (`keybd_shift.cpp:68-72`) rewrites it:
 
 ```c
 case VK_RCONTROL:
@@ -431,6 +502,21 @@ case VK_LCONTROL:
 resolves to Right Ctrl. After `SendInput`, `GetAsyncKeyState(VK_RCONTROL) < 0`
 **system-wide, on hardware that has no Right Ctrl key.** No physical key is
 involved at any point. The phantom is entirely Keyman's own injection.
+
+**The chirality rewrite is now asserted by tests that run, 2026-08-26** — an upgrade
+from "proven from code by reading" to "asserted by a test", which matters for a
+claim a fix is going to be argued from
+(`tests/keybd_shift.tests.cpp`, [`IN-TREE.md`](IN-TREE.md) §2):
+
+| test | what it pins |
+|---|---|
+| `KEYBD_SHIFT.RightControlCollapsesToExtendedControl` | a Cache A byte at `VK_RCONTROL` emits `VK_CONTROL` **with** `KEYEVENTF_EXTENDEDKEY`, and **`VK_RCONTROL` never reaches `SendInput`**; the `VK_LCONTROL` arm emits `VK_CONTROL` with the flag clear |
+| `KEYBD_SHIFT.RightShiftCollapsesToShiftWithRightScanCode` | a byte at `VK_RSHIFT` emits `VK_SHIFT` with `wScan == SCANCODE_RSHIFT` — explicitly **not** `SCAN_FLAG_KEYMAN_KEY_EVENT` — and with the extended bit **clear**: *"Shift's side comes from the scan code, never the extended flag"*. The `VK_LSHIFT` arm does carry the `0xFF` marker |
+
+Right Shift is therefore the one modifier that **cannot** carry Keyman's
+synthesized-key marker, because the marker slot is spent on the scan code that
+carries the side. That is the asymmetry §2b flags as unexplained, now fixed in
+place by an assertion so a refactor cannot quietly reverse it.
 
 ### 3b. And the user cannot clear it
 
@@ -449,7 +535,7 @@ is restarting Keyman.
 `kmmods.ps1 -Latch RCTRL` injects an unmatched `vk=0x11 VK_CONTROL, scan=0x1D,
 KEYEVENTF_EXTENDEDKEY` and then tries each clearing action in turn:
 
-⚠️ **This is a generic injector's byte pattern, not Keyman's own.**
+[WARN] **This is a generic injector's byte pattern, not Keyman's own.**
 `keybd_shift_reset` emits the same VK and flag but with
 `scan = SCAN_FLAG_KEYMAN_KEY_EVENT` = **0xFF** (`keybd_shift.cpp:169`); the
 harness uses the real `0x1D` from `MapVirtualKey` (`kmmods.ps1:988`). The
@@ -494,7 +580,7 @@ than an extrapolation.
 
 **Step 3 used an injected KEYUP, and that is sufficient — provably, not merely
 plausibly.** `kmmods.ps1` injects with `dwExtraInfo = 0` and the real `scan=0x1D`,
-so the filter at `k32_lowlevelkeyboardhook.cpp:233`
+so the filter at `k32_lowlevelkeyboardhook.cpp:229-240`
 (`dwExtraInfo != 0 || scanCode == SCAN_FLAG_KEYMAN_KEY_EVENT`) cannot distinguish
 it from hardware — both pass identically, and `LLKHF_INJECTED` is never consulted.
 A physical Right Ctrl on an external keyboard would therefore be a positive
@@ -511,15 +597,32 @@ physically exist.**
 
 ### 3c. Worse: the latch re-arms itself
 
-The modifier post at `k32_lowlevelkeyboardhook.cpp:198` runs **35 lines before**
-the filter at `:233` that discards Keyman's own events
+The modifier post at `k32_lowlevelkeyboardhook.cpp:198-202` runs **31 lines
+before** the filter at `:229-240` that discards Keyman's own events
 (`hs->dwExtraInfo != 0 || hs->scanCode == SCAN_FLAG_KEYMAN_KEY_EVENT`). So the
 phantom KEYDOWN that `keybd_shift_reset` just injected is seen by Keyman's own
 hook and written straight back into Cache A as `0x80`.
 
+*(~~35 lines~~ — corrected to 31 on 2026-08-26, [`IN-TREE.md`](IN-TREE.md) §3 C-7.
+The conclusion is unaffected: the post still precedes the filter and is not guarded
+by it. Same section records a **second** unguarded emitter above the pass-through,
+`PostVisualKeyboardModifierEvent` at `:186-188` — same `isModifierKey` predicate,
+not even gated on `flag_ShouldSerializeInput`, but it feeds the on-screen keyboard
+rather than Cache A, so it is not part of this loop or of #8064. `TODO.md` **I17**.)*
+
 Cache A therefore does not merely *fail to refresh* — it **re-confirms its own
 hallucination on every injected batch**. This is a closed loop, and a second
 independent reason the state is stable rather than transient.
+
+**Which is a feed, and it cuts both ways** ([`IN-TREE.md`](IN-TREE.md) §3 C-10,
+`TODO.md` **I16**). On every batch, `keybd_shift_release`'s KEYUP drives the cache
+byte to `0` and `keybd_shift_reset`'s KEYDOWN drives it back to `0x80` — Keyman's
+own synthetic modifier events are a *writer* of Cache A, not merely an echo of it.
+So a batch-start reconcile works **with** the loop: when it clears a stale byte,
+both halves emit nothing, no feedback messages are generated, and the stale byte
+cannot be resurrected by Keyman's own events. It is also why filtering for
+`SCAN_FLAG_KEYMAN_KEY_EVENT` is unnecessary in a `GetAsyncKeyState`-based reconcile
+— there is no event in that path to filter.
 
 ### 3d. Where does the initial Right Ctrl come from? (open — needs measurement)
 
@@ -753,8 +856,22 @@ under any circumstances. `GetAsyncKeyState(0x0E)` reports it perfectly, which is
 why `kmmods.ps1` watches it as `ZAPVK` and never injects it: the script cannot be
 the source, so a high bit there can only have come from Keyman.
 
-Whether it actually happens is **unmeasured**. The point is that nothing prevents
-it and nothing until now was looking.
+Whether it actually happens **was** unmeasured when this section was written. It is
+not any more, and the two halves of the question came apart:
+
+- **It happens.** [`TODO.md`](TODO.md) **I11** measured a latched prefix VK **1/116**
+  on 2026-08-24 — rare, but real, and `kmmods.ps1` watches it as `ZAPVK` precisely
+  because the script cannot be its source.
+- **Which emitter did it is still open.** `kmaltgr.ps1`'s wire capture saw *every*
+  prefix KEYDOWN matched by a KEYUP, so that run only ever covered the **atomic**
+  path (`keybd_sendprefix`, one `SendInput`). `PostDummyKeyEvent`
+  (`keyman32.cpp:923-926`) uses two separate `keybd_event` calls with nothing
+  between them and was never on the captured path. That is
+  [`TODO.md`](TODO.md) **I14**.
+
+So the honest statement is: measured to occur, mechanism unattributed. Corrected
+2026-08-26 — this paragraph previously said "unmeasured" flatly, which contradicted
+I11 and §2a-wire's own `PREFIX-LATCH` hit.
 
 ---
 
@@ -788,12 +905,17 @@ false negatives the same way the case-insensitive comparison did.
 
 ## 7. Where fixes belong
 
-Per direction on 2026-08-23:
+Per direction on 2026-08-23, **superseded for Cache A on 2026-08-26**:
 
-- **Stuck-modifier (Cache A) work — not being fixed in Keyman code yet.** Stays
-  here as repro + analysis. §3 is the part to lead with when it does go upstream:
-  it is the mechanism, it is provable from code, and it explains the persistence
-  the current write-ups flag as unexplained.
+- ~~**Stuck-modifier (Cache A) work — not being fixed in Keyman code yet.** Stays
+  here as repro + analysis.~~ **The fix was written, tested and committed on
+  2026-08-26** — `a26aa611b5` on `fix/windows/8064-reconcile-modifier-cache`,
+  `test:x86` 19/19 and `test:x64` 18/18, both engine DLLs linking clean; see
+  [`IN-TREE.md`](IN-TREE.md) and `TODO.md` **D1**. This document keeps its job:
+  repro + analysis, and the source of the argument. §3 is still the part to lead
+  with — it is the mechanism, it is provable from code, and it explains the
+  persistence the current write-ups flag as unexplained — but lead with it as
+  §3a now reads it, per **output batch** rather than per keystroke.
 - **Un-read-modifier-state (Cache B) work — split out to
   [`capslock/`](capslock/README.md)**, and belongs on the #16423 branch, which is
   already "stop trusting cached lock state, re-read it". Findings **4a**, **4b**

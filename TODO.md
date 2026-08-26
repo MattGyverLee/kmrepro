@@ -9,12 +9,21 @@ shares the staleness shape but is a different bug and now lives in
 decision (not forgotten)
 
 **Upstream:** [#8064] (rc-swag/Ross, open since 2023-01-23, milestone 20.0) — see
-`README.md` "Upstream issue" and `MEETING-PREP.md`. **Not being fixed in Keyman
-code yet**, explicit direction 2026-08-23. Port plan: `TEST-PLAN.md`, whose **P**
-(port), **X** (cross-platform) and **T11-T13** (gates) series continue this list
-and are not repeated here.
+`README.md` "Upstream issue" and `MEETING-PREP.md`. ~~**Not being fixed in Keyman
+code yet**, explicit direction 2026-08-23.~~ **Superseded by direction 2026-08-26:
+the Cache A fix was to be written, tested and made minimal, and it has been** —
+**D1** is done and committed. Compiled, executed, committed evidence is in
+[`IN-TREE.md`](IN-TREE.md); it is the source of truth wherever this file and it
+disagree. Port plan: `TEST-PLAN.md`, whose **P** (port), **X** (cross-platform)
+and **T11-T13** (gates) series continue this list and are not repeated here —
+except for the two whose standing changed on 2026-08-26, recorded in §5a.
 
-Code refs are `windows/src/engine/keyman32/` at `a70538106c` unless noted.
+Code refs are `windows/src/engine/keyman32/` at `a70538106c` unless noted. The
+in-tree work sits on `fix/windows/8064-reconcile-modifier-cache` in the companion
+checkout, based on upstream `origin/master` @ `deeff0456f`. **Every code claim in
+this repo was re-checked against that base on 2026-08-26 and all of them held**
+([`IN-TREE.md`](IN-TREE.md) §3); the corrections that section adds are folded in
+below, item by item.
 
 ---
 
@@ -87,7 +96,7 @@ so they come first.
   configuration any Cameroon user runs, injected `-Arms` already shows no
   synthesis); and a physical Right Ctrl via external keyboard, because
   `kmmods.ps1` injects with `dwExtraInfo = 0` and a real `scan=0x1D`, so the
-  filter at `k32_lowlevelkeyboardhook.cpp:233` cannot distinguish it from
+  filter at `k32_lowlevelkeyboardhook.cpp:229-240` cannot distinguish it from
   hardware and `LLKHF_INJECTED` is never consulted — a positive control on a path
   with no branch in it.
 
@@ -101,6 +110,12 @@ so they come first.
   **Why it matters:** every blast-radius and fix-coverage claim depends on it.
   `FIX-PROPOSAL.md` already flags it as an open caveat. Resolve before any fix
   claims to cover 64-bit.
+  **STILL OPEN, AND THE D1 LANDING DID NOT TOUCH IT — 2026-08-26.** Do not read
+  the landing as an answer. `ReconcileModifierCache` is architecture-neutral and
+  is unit-tested on both architectures (`test:x86` 19/19, `test:x64` 18/18), and
+  both engine DLLs link clean — but its *call site* is inside `#ifndef _WIN64` by
+  construction, exactly as the server is, so the fix inherits this question
+  rather than settling it ([`IN-TREE.md`](IN-TREE.md) §6).
 
 - [ ] **I8 — Mixed engine versions after an in-place upgrade.**
   An independent candidate mechanism that no other doc carries.
@@ -188,6 +203,13 @@ so they come first.
   **Fix, if confirmed:** route `PostDummyKeyEvent` through the same atomic
   `SendInput` batch `keybd_sendprefix` uses.
 
+  **Citation re-checked 2026-08-26 against `fix/windows/8064-reconcile-modifier-cache`
+  and still true, unchanged.** `PostDummyKeyEvent` is `keyman32.cpp:923-926`, with
+  the two separate `keybd_event` calls at `:924` (down) and `:925` (up) and
+  nothing between them; the three call sites are still
+  `k32_lowlevelkeyboardhook.cpp:294`, `kmhook_keyboard.cpp:146` and `:195`.
+  Untouched by the D1 landing, which changes nothing on this path.
+
 - [ ] **I12 — What resets the accumulated latch set between runs?**
   Observed 2026-08-24, written up in `MODIFIERS.md` §2c. Within one run the held
   set grows monotonically — six arms, six additions, never a removal — even
@@ -255,6 +277,10 @@ so they come first.
   Candidates to instrument: update-check COM calls, modal dialogs, OSK
   show/hide, Sentry init, TIP profile enumeration, font/registry enumeration.
   Until this is answered, the PR cannot say what users should avoid.
+  **STILL OPEN, AND THE D1 LANDING DID NOT TOUCH IT — 2026-08-26.** The fix makes
+  the *consequence* of the stall harmless; it does not explain the cause, and the
+  PR still cannot tell a user what to avoid ([`IN-TREE.md`](IN-TREE.md) §6).
+  **I15** — Ross's focus-change observation — is still the best lead.
 
 - [ ] **I4 — The one run that went from wedged to emitting nothing at all.**
   `FIX-PROPOSAL.md` records a single trial that did not recover under the
@@ -281,9 +307,13 @@ so they come first.
   the non-repro question. `windows/src/support/fakefreeze/` posts the same
   `KMC_WATCHDOG_FAKEFREEZE` this harness posts, and the handler
   (`UfrmKeyman7Main.pas:868`) is an ungated `Sleep(5000)` — no debug flag, no
-  special build. **It has no `build.sh`**, so `./windows/build.sh` never produces
-  it (`TEST-PLAN.md` P0). A null result here means something else differs and is
-  worth knowing.
+  special build. ~~**It has no `build.sh`**, so `./windows/build.sh` never produces
+  it (`TEST-PLAN.md` P0).~~ **That blocker is gone as of 2026-08-26:** commit
+  `5274fec612` adds `support/fakefreeze/build.sh` and registers `:fakefreeze` in
+  `support/build.sh`, so `./windows/build.sh` reaches it; built and verified x86
+  and x64 ([`IN-TREE.md`](IN-TREE.md) §5). The investigation itself — does it
+  reproduce on a clean VM — is **still open**. A null result here means something
+  else differs and is worth knowing.
 
 - [ ] **I14 — which emitter latched the prefix VK?** I11 measured it 1/116, but
   `kmaltgr.ps1`'s wire capture saw every prefix KEYDOWN matched by a KEYUP, so
@@ -299,6 +329,44 @@ so they come first.
   Backspace forces an injected batch, i.e. the *emission* step. A focus change is
   a plausible **stall source** — which is exactly I3, the gap this repo could not
   close. If it holds, the field story completes without the debug-only stimulus.
+
+- [x] **I16 — Cache A is fed by Keyman's *own* synthetic modifier events.
+  ESTABLISHED FROM CODE 2026-08-26** ([`IN-TREE.md`](IN-TREE.md) §3 C-10). Nothing
+  in this repo noted it before, and it matters twice. The modifier post at
+  `k32_lowlevelkeyboardhook.cpp:198` fires on `isModifierKey(vkCode)` alone and
+  does **not** exclude Keyman's own injected events, because the
+  `SCAN_FLAG_KEYMAN_KEY_EVENT` pass-through is 31 lines further down (`:229-240`).
+  So on every output batch `keybd_shift_release`'s KEYUP drives the cache byte to
+  `0` and `keybd_shift_reset`'s KEYDOWN drives it back to `0x80` — the closed loop
+  `MODIFIERS.md` §3c describes, now stated as a *feed* rather than as a
+  consequence. Two things follow:
+  - **The fix works *with* the loop, not against it.** When D1's reconcile clears
+    a stale byte, the release and reset halves emit *nothing*, so no feedback
+    messages are generated and there is nothing to race. Keyman's own events
+    cannot resurrect the stale byte.
+  - **The mid-feedback window is pre-existing, not introduced.** The feed is a
+    `PostMessage`, so a later batch can begin while the cache sits at the
+    intermediate `0`, and reset then restores nothing. That is equally true
+    *without* D1, since reconcile only ever clears and a byte already `0` is
+    untouched. D1 adds no exposure here; the C-9 residual risk recorded under
+    **D1** is the only one it does add.
+  **This is also why filtering Keyman's own markers is unnecessary** for a
+  `GetAsyncKeyState`-based reconcile — there is no event in that path to filter.
+  See the retraction inside **D1**.
+
+- [x] **I17 — there is a *second* unguarded emitter above the pass-through.
+  ESTABLISHED FROM CODE 2026-08-26** ([`IN-TREE.md`](IN-TREE.md) §3 C-7).
+  `PostVisualKeyboardModifierEvent` at `k32_lowlevelkeyboardhook.cpp:186-188` sits
+  above the `!isKeymanKeyboardActive` pass-through on the **same** `isModifierKey`
+  predicate as the `:198` post, and is **not even gated on
+  `flag_ShouldSerializeInput`**. It feeds the on-screen keyboard, not Cache A, so
+  it is **not part of #8064** and nothing here should touch it. Recorded because an
+  auditor asking "what runs before the pass-through?" will find **two** things, not
+  one, and needs to know which of them this bug lives in.
+  The same correction fixes a count: the gap between the modifier post
+  (`:198-202`) and the pass-through (`:229-240`) is **31 lines**, not the 35 that
+  `MODIFIERS.md` §3c claimed. Conclusion unaffected — the post still precedes the
+  filter and is not guarded by it.
 
 ## 1a. Ruled out
 
@@ -347,19 +415,63 @@ time — which is what made it the initial suspect.
 issues (#16422 / #16423), separate branch. Items **F1-F5** and gates **T1-T5**
 live there.
 
-## 3. Deferred — Cache A fixes in Keyman code
+## 3. Cache A fixes in Keyman code — D1 landed, the rest still deferred
 
-`[-]` throughout: **not being implemented yet**, by explicit direction. Kept here
-so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
+~~`[-]` throughout: **not being implemented yet**, by explicit direction.~~ No
+longer true of **D1**, which was written, compiled, tested and committed on
+2026-08-26. The remaining `[-]` items keep their standing: the proposal is ready
+when it is wanted. Drafts in `FIX-PROPOSAL.md`; what actually shipped, and on what
+evidence, in [`IN-TREE.md`](IN-TREE.md).
 
-- [-] **D1 — Re-validate Cache A from the OS at batch start.** The real fix.
-  In `PrepareInjectedInput()` (`serialkeyeventserver.cpp:384-400`), before the
-  first `keybd_shift()`, refresh the six modifier bytes and let the OS win.
-  Constraints already established: resync **only** at batch start, before
-  Keyman's own synthetic events; prefer `GetAsyncKeyState` over
-  `GetKeyboardState`; ignore events carrying `SCAN_FLAG_KEYMAN_KEY_EVENT` /
-  `EXTRAINFO_FLAG_SERIALIZED_USER_KEY_EVENT`. Should share a helper with the
-  Caps resync in #16423 rather than duplicating it.
+- [x] **D1 — Re-validate Cache A from the OS at batch start. DONE — implemented,
+  compiled, tested and committed 2026-08-26.**
+  Commit `a26aa611b5` (`fix(windows): reconcile cached modifier state with the OS
+  before injecting`) on branch `fix/windows/8064-reconcile-modifier-cache`, over
+  `keymanengine.h`, `keybd_shift.cpp` and `serialkeyeventserver.cpp` plus tests.
+  **64 lines of production change across 3 files, roughly 40 of them comment**: one
+  typedef, one declaration, a ten-line loop, and one call. Full account, including
+  the build environment it was proven in, in [`IN-TREE.md`](IN-TREE.md).
+  **Gates, all green:** `test:x86` **19/19**, `test:x64` **18/18** (1 disabled
+  each; the x86-only `isModifierKey` case correctly compiles out of the x64 run);
+  `keyman32.dll` Win32 Debug and `keyman64.dll` x64 Debug both **link clean, 0
+  warnings** — which matters, because `keyman32.vcxproj` compiles with warnings as
+  errors. No name collisions and no blast radius: `keymanengine.h` is included by
+  exactly two files, both PCHs.
+  **As shipped:** `ReconcileModifierCache(LPBYTE const kbd, PGETASYNCKEYSTATE
+  pfnGetAsyncKeyState)` in `keybd_shift.cpp`, called as the **first statement** of
+  `PrepareInjectedInput`, clearing any of the six slots the cache holds at `0x80`
+  while `GetAsyncKeyState` reports up, and logging each disagreement with
+  `SendDebugMessageFormat`. Declared above the `#ifndef _WIN64` region so both
+  architectures see it.
+  Two constraints this item used to carry did **not** make it into the shipped
+  change, and neither omission was an oversight:
+  - ~~"ignore events carrying `SCAN_FLAG_KEYMAN_KEY_EVENT` /
+    `EXTRAINFO_FLAG_SERIALIZED_USER_KEY_EVENT`"~~ — **retracted.** That advice
+    applied to a design that reads the event stream. This one reads
+    `GetAsyncKeyState`, so there is no event to filter. See **I16**.
+  - ~~"should share a helper with the Caps resync in #16423"~~ — **not done.**
+    Shipped as a standalone helper in `keybd_shift.cpp`; #16423 is a separate
+    branch. Recorded as not done rather than as refuted — the sharing is still
+    worth doing when both land.
+  Two properties of the landing that must not be over-claimed, both from
+  [`IN-TREE.md`](IN-TREE.md) §3:
+  - **The fix is preventive, not curative** (C-2). Once the first phantom KEYDOWN
+    has been sent the modifier is *genuinely* held at the OS, cache and OS agree,
+    and a `GetAsyncKeyState`-based reconcile can no longer detect anything. Batch
+    start is therefore not merely a good placement — it is the **last point at
+    which prevention is possible**. It cannot recover an already-latched process.
+  - **One residual regression risk, accepted and documented in the code comment**
+    (C-9). If the previous batch's re-press KEYDOWN has not yet been reflected in
+    `GetAsyncKeyState`, reconcile can clear a genuinely held modifier: one output
+    batch emitted unshifted, re-arming on that modifier's next physical KEYDOWN.
+    Self-healing, and strictly smaller than a machine-wide latch on a key the
+    keyboard may not have. The window is many milliseconds and several thread
+    transitions wide; no debounce was added.
+  Also for the PR description rather than for a reviewer to discover (C-8):
+  `GetAsyncKeyState`'s low "pressed since last query" bit is shared across
+  processes, and the fix adds six reads per output batch.
+  `kmhook_callwndproc.cpp:121-123` already calls it, so this is not a new
+  dependency. **Gates still owed:** **T14** (ARM64) below, and **T7** / **T8**.
 
 - [-] **D2 — Move the LL hook off the UI thread.** The structural fix.
   `keyman32.cpp:279` installs `WH_KEYBOARD_LL` against keyman.exe's Delphi main
@@ -367,27 +479,74 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
   also runs dialogs, COM and the updater. The serializer already owns a dedicated
   pump thread (`serialkeyeventserver.cpp:90`); the hook should follow the same
   pattern. Until it does, no downstream repair fully covers the drop.
+  **Standing confirmed 2026-08-26, and deliberately kept out of the D1 change**
+  ([`IN-TREE.md`](IN-TREE.md) §3 C-5): `FIX-PROPOSAL.md` itself says fix 1 "should
+  land first and independently", and the fix-2 draft still leaves
+  `RestartLowLevelHook`, the per-thread globals and shutdown ordering unresolved.
+  Separate PR.
 
-- [-] **D3 — Watch modifier sanity, not just hook liveness.**
-  `LowLevelHookWatchDog` checks whether the hook looks alive. Add an idle
-  invariant: any cached modifier at `0x80` while `GetAsyncKeyState` says up gets
-  cleared. Self-healing, no user action.
+- [-] **~~D3 — Watch modifier sanity, not just hook liveness.~~ REFUTED
+  2026-08-26 — would be close to a no-op. Dropped.**
+  Kept with its retraction rather than deleted. The idea was to add an idle
+  invariant to `LowLevelHookWatchDog`: any cached modifier at `0x80` while
+  `GetAsyncKeyState` says up gets cleared, self-healing, no user action.
+  **Why it does not work** ([`IN-TREE.md`](IN-TREE.md) §3 C-3):
+  `LowLevelHookWatchDog::KeyEventReceivedInGetMessageProc()` runs from the
+  GetMessage hook, which is injected into **every** application's process, while
+  `ISerialKeyEventServer::GetServer()` returns `sm_server` — only ever constructed
+  where the server runs, i.e. keyman.exe. In every other process it is `NULL` and
+  the proposed reconcile returns immediately; in keyman.exe itself the GetMessage
+  hook only sees keyman.exe's own keystrokes. So it buys almost nothing while
+  adding a cross-process write to a 256-byte array. `FIX-PROPOSAL.md` argued this
+  was needed to catch "the case where the user stops typing into Keyman entirely";
+  on this reading it does not catch that case either.
 
-- [-] **D4 — Make the phantom re-press non-silent.**
+- [x] **D4 — Make the phantom re-press non-silent. DONE, subsumed by D1 as
+  shipped.**
   `keybd_shift_reset()` emitting an unmatched KEYDOWN is intentional for a
-  genuinely-held modifier and indistinguishable from asserting a stale one. Gate
-  it on a fresh OS check and log the disagreement — that disagreement *is* the
-  bug, and nothing reports it today.
+  genuinely-held modifier and indistinguishable from asserting a stale one. The
+  ask was to gate it on a fresh OS check and log the disagreement — that
+  disagreement *is* the bug, and nothing reported it. `ReconcileModifierCache`
+  does exactly both: it is the fresh OS check, placed so `keybd_shift_reset` can
+  only be reached through it, and it emits
+  `SendDebugMessageFormat("cache says held but OS says up, clearing vkey=%s", …)`
+  per disagreeing slot. **Log-level only** — the Sentry half of this is **D6**,
+  which stays out.
 
 - [-] **D5 — Do NOT gate the `:198` modifier post on `isKeymanKeyboardActive`.**
   Recorded as a decision, not a task. Per the comment at `:193` (#7337) the post
   exists to keep the serialized queue in sync across keystrokes Keyman does not
   otherwise process. Suppressing it trades this bug for a different desync. D1
   handles the case instead, by correcting the cache immediately before use.
+  **Held to, 2026-08-26.** D1 landed without touching the `:198` post, exactly as
+  this decision said it should. **I16** now explains why that is the right call
+  from the other direction as well: the post is the cache's *feed*, and D1 works
+  with that feed rather than against it.
 
-- [-] **D6 — Cherry-pick the hook-reinstall telemetry.**
-  `930ae121c4` (Sentry event on hook reinstall) is master-only; stable-18 is
-  blind. Extend it to report cache/OS modifier disagreement, not just reinstalls.
+- [-] **D6 — Cherry-pick the hook-reinstall telemetry. OUT OF THE MINIMAL CHANGE,
+  2026-08-26.** Not refuted — deferred, for three concrete reasons
+  ([`IN-TREE.md`](IN-TREE.md) §3 C-4). `930ae121c4` (Sentry event on hook
+  reinstall) is master-only; stable-18 is blind. Extending it to report cache/OS
+  modifier disagreement means `WHR_MODIFIER_DESYNC`, and:
+  1. **It needs Delphi.** `WHR_MODIFIER_DESYNC` spans `keymancontrol.h`,
+     `KeymanControlMessages.pas` and `UfrmKeyman7Main.pas`. Delphi is **not
+     installed** on the dev machine — `delphi_environment_generated.inc.sh` is an
+     empty stub — so this could only ever have been another never-compiled draft.
+  2. **It is reported *by* the dropped fix 3**, i.e. **D3**, which is refuted
+     above. The reporter went away before the report did.
+  3. **It needs a rate limiter first**, as `FIX-PROPOSAL.md` itself flags: a
+     stranded cache could emit one Sentry event per keystroke.
+  What covers the diagnostic need meanwhile: `SendDebugMessageFormat` inside
+  `ReconcileModifierCache`, with no cross-language edit at all. See **D4**.
+
+- [ ] **D7 — Correct the stale doc comment on `keybd_shift_release`.** One line,
+  worth fixing in passing, found 2026-08-26 ([`IN-TREE.md`](IN-TREE.md) §3 C-11).
+  `keybd_shift.cpp:129-130` describes the `kbd` parameter as the array "in which we
+  will store the initial modifier state for later restoration by
+  `keybd_shift_reset`". **The function never writes `kbd` — it only ever reads it.**
+  Both halves read a cache owned entirely by the server. Deliberately not touched
+  by the D1 commit, which was kept minimal; recorded so the next reader is not
+  misled by it.
 
 ---
 
@@ -500,41 +659,118 @@ gates live in [`capslock/TODO.md`](capslock/TODO.md).
   session was obtained at `-LoadThreads 0`, so the confirmed freeze alone is
   sufficient and no CPU load is required.
 
-**For the Cache A work, whenever it is taken up:**
+**For the Cache A work — taken up 2026-08-26, see D1.** T7 and T8 are the two
+that D1 does not discharge: the unit tests prove the helper, not the machine.
 
-- [ ] **T6 — Re-run the three-arm proof with Ctrl included.** US / MSKLC / Keyman,
+- [ ] **T6 — Re-run the cross-keyboard proof with Ctrl included.** English / MSKLC / Keyman,
   same stimulus and load, now covering all six modifiers rather than LShift and
   RAlt. Blocked on H1 + H2.
 - [ ] **T7 — Confirm self-healing.** Post-fix, a latched modifier must clear on
   the next injected batch rather than persisting. Includes the missing-key case
   (H3), which is the one that cannot heal today.
-- [ ] **T8 — Blast-radius recheck.** Post-fix, verify US and MSKLC layouts no
+- [ ] **T8 — Blast-radius recheck.** Post-fix, verify the English and MSKLC layouts no
   longer produce capitals with no trigger applied to them, and that Ctrl+A is no
   longer delivered as Ctrl+Shift+A system-wide.
 
 ---
 
+## 5a. Follow-ups from the 2026-08-26 landing
+
+Three items the 2026-08-26 landing created or moved. **P1** and **S2** belong to
+`TEST-PLAN.md` and are not otherwise repeated here; only their standing is, because
+it changed.
+
+- [ ] **T14 — Confirm the ARM64 leg. THE ONE UNBUILT ARCHITECTURE.**
+  `keymanarm64.dll` was **not built** and the new code is therefore **unverified on
+  ARM64** ([`IN-TREE.md`](IN-TREE.md) §1, §6). The reason is environmental, not
+  design: there are **no ARM64 MSVC libraries on the dev machine** —
+  `VC\Tools\MSVC\14.44.35207\lib\` holds only `x86`, `x64` and `onecore`, which is
+  also why `build.sh configure` dies with `LNK1104: cannot open file
+  'libcpmtd.lib'` and must not be run here.
+  **What is expected, and it is an expectation, not a result:** `keybd_shift.cpp`
+  has **no architecture guard**, and the `ReconcileModifierCache` declaration sits
+  *above* the `#ifndef _WIN64` region in `keymanengine.h` so both architectures see
+  it, so it **should** compile. Nothing has compiled it. **Do not write "builds on
+  all three architectures" in the PR.**
+  **Who can close this:** CI, or any machine with the ARM64 MSVC toolset installed.
+  Until then the claim is x86 and x64 only, both measured.
+
+- [ ] **P1 — Restore `RightAltEmulationCheck.tests.cpp` to the vcxproj.
+  PROBED AND IT PASSES — 2026-08-26 — deliberately not landed.**
+  `TEST-PLAN.md` risk 6 asked whether it would fail on restore. **MEASURED: it
+  compiles and passes**, 20 tests / 7 cases with it enabled. So P1 is a safe
+  one-line change. It was kept **off** this branch on purpose: it is unrelated to
+  #8064 and belongs in its own commit, so that a future failure there is never
+  read as a regression from this work ([`IN-TREE.md`](IN-TREE.md) §4).
+
+- [ ] **S2 — Extract `NormalizeModifierVk`. Now the highest-value remaining
+  test-side item.**
+  `TEST-PLAN.md` **S2**, with its tests `T-S5`-`T-S7`: not done. A pure testability
+  refactor that D1 does not need, which is exactly why it survived a minimal change
+  ([`IN-TREE.md`](IN-TREE.md) §6) — and why it is now the highest-value item left on
+  the test side: `NormalizeModifierVk` is the seam that would let Cache A's *writer*
+  be tested at all.
+  **One trap to carry into `T-S5`-`T-S7`, measured the hard way:** do **not** use
+  `SCOPED_TRACE`. gtest 1.8.1's `ScopedTrace` pushes onto a trace-stack vector whose
+  capacity is retained after the scope exits, and `gtest_main.cpp`'s
+  `_CrtMemDifference` check reports that as a **168-byte leak**, failing the suite.
+  It is what invalidated `T-P6` and `T-S4` **as drafted** — both had to be rewritten
+  with per-assertion `<<` messages before they could land
+  ([`IN-TREE.md`](IN-TREE.md) §4, risk 3).
+
+---
+
 ## 6. Suggested order
 
-1. **I5** sets the coverage claims for everything else in this list, and today it
-   is inference rather than measurement. Do it first — it decides what the rest
-   may claim.
-2. **F1 / F2 / F3** — self-contained, reviewable, and independent of the Cache A
+Reordered 2026-08-26. The code is written; what is left is getting it in front of
+people and closing the one architecture nobody has compiled.
+
+1. **Push the branch.** `fix/windows/8064-reconcile-modifier-cache` exists only
+   locally — four commits, nothing pushed, no PR open
+   ([`IN-TREE.md`](IN-TREE.md) §6). Nothing below can be reviewed until it is.
+   The first commit, `204e63493b`, is landable on its own: it characterises the
+   defect without proposing a fix, so it keeps its value even if **D1** is reworked
+   in review.
+2. **Open the PR**, leading with §2a-wire of `MODIFIERS.md` — the unmatched KEYDOWN
+   caught on the wire — and carrying the four things a reviewer will otherwise find
+   for themselves: **D1**'s preventive-not-curative limit (C-2), its one residual
+   risk (C-9), the shared `GetAsyncKeyState` low bit (C-8), and **T14**, the unbuilt
+   ARM64 leg. Do **not** claim per-keystroke re-pressing — the cadence is per queued
+   output batch, and a reviewer who checks will find the stronger claim false.
+   See `MODIFIERS.md` §3c.
+3. **Comment on #8064.** It is **Ross's** issue, open since 2023-01-23, and it has
+   not been commented on. `MEETING-PREP.md` is still the brief; that is the
+   document to work from, not this list.
+4. **Confirm the ARM64 leg — T14.** CI or an ARM64-toolset machine. Until it is
+   confirmed, the coverage claim is x86 and x64 only.
+5. **S2** (`NormalizeModifierVk`) — the highest-value remaining test-side item, and
+   the only one whose absence is felt. **P1** is a safe one-line follow-up commit
+   whenever it is wanted; both are in §5a.
+6. **I5** still sets the coverage claims for everything in this list, and it is
+   still inference rather than measurement. The landing did not answer it. It now
+   ranks below the push only because the code no longer waits on it.
+7. **F1 / F2 / F3** — self-contained, reviewable, and independent of the Cache A
    question. Gate on **T1-T5**. Settle **F5** with the reviewer before opening.
-3. **I12** is down to one fork that needs a separate injector process to resolve —
+8. **I12** is down to one fork that needs a separate injector process to resolve —
    no longer cheap, so weigh it against **I7**, which needs affected hardware to be
    found first.
-4. Quote numbers from `kmproof.ps1`, `kmmods.ps1` and `kmaltgr.ps1` only.
-5. **I2 / I3 / I4 / I6 / I8 / I9 / I10 / I11** as the remaining open
-   questions.
-   **I3** is the one that blocks a complete field story for the Cache A PR.
-   **I8** is the one most likely to turn out to be a co-factor rather than a dead
-   end, since it independently explains the post-update clustering. **I10** and
-   **I11** are cheap to check and both are *different defects* that would
-   otherwise be misfiled as this one — I11 costs nothing at all, since every
-   `kmmods.ps1` run already collects the evidence. **H6 is closed** — I4 does
-   *not* need re-running on its account.
-6. **D1-D6** only when the Cache A work is picked up. **D1** should land as a
-   shared helper with #16423's resync, not as a second independent patch.
+9. Quote numbers from `kmproof.ps1`, `kmmods.ps1` and `kmaltgr.ps1` only.
+10. **I2 / I3 / I4 / I6 / I8 / I9 / I10 / I11** as the remaining open
+    questions.
+    **I3** is the one that blocks a complete field story for the Cache A PR, and
+    **D1 did not close it** — the fix makes the consequence harmless without
+    explaining the cause. **I15** is the cheapest attempt at it.
+    **I8** is the one most likely to turn out to be a co-factor rather than a dead
+    end, since it independently explains the post-update clustering. **I10** and
+    **I11** are cheap to check and both are *different defects* that would
+    otherwise be misfiled as this one — I11 costs nothing at all, since every
+    `kmmods.ps1` run already collects the evidence. **H6 is closed** — I4 does
+    *not* need re-running on its account. **I13**'s build blocker is gone
+    (`5274fec612`), so that one is now just a matter of finding a clean VM.
+11. **D2 / D6 / D7** are what is left of the D series. **D1** and **D4** are done,
+    **D3** is refuted, **D5** was always a decision rather than a task. ~~**D1**
+    should land as a shared helper with #16423's resync, not as a second independent
+    patch.~~ It did not; it landed standalone, and the sharing is still worth doing
+    when both are in.
 
 [#8064]: https://github.com/keymanapp/keyman/issues/8064
