@@ -449,32 +449,16 @@ so the proposal is ready when it is wanted. Detail in `FIX-PROPOSAL.md`.
   was.
 
 - [x] **H6 — Right Shift extended flag. RAISED, THEN DISPROVED.**
-  `kmproof.ps1:288` had `@{V=0xA1;E=$true; L='RShift'}`. Right Shift is scan
-  `0x36` and is not extended, so the entry was wrong on its face; it is now
-  `E=$false`. Changed for form only.
-
-  **The consequence originally claimed here was WRONG and is retracted.** This
-  entry said `ClearMods` had never released RShift, that the six-modifier sweep
-  was really five keys, and that **I4** needed re-running because of it. None of
-  that holds.
-
-  Measured at the wire with `kmaltgr.ps1`, 2026-08-25: injecting `VK_RSHIFT`
-  with the extended flag and without it produces byte-identical events at a
+  Measured at the wire with `kmaltgr.ps1`, 2026-08-25: injecting `VK_RSHIFT` with
+  the extended flag and without it produces byte-identical events at a
   `WH_KEYBOARD_LL` hook — both `RSHIFT scan=0x36 EXT|INJ`. Windows resolves the
-  side from the side-specific **virtual key** (`0xA1`); the scan code and
-  extended flag are ignored on this path, and it reports `LLKHF_EXTENDED` for
-  Right Shift either way. Every sweep this repo has ever run was six keys.
+  side from the side-specific **virtual key** (`0xA1`); the scan code and extended
+  flag are ignored on this path. The sweeps were always six keys, and **I4** is
+  unaffected.
 
-  **I4 is therefore unaffected** and needs no re-run on this account.
-
-  Worth keeping for the mechanism it exposed: the extended bit *does* decide the
-  side when the caller passes the **generic** VK. Keyman's `do_keybd_event`
-  (`keybd_shift.cpp:63-88`) collapses the side-specific VKs to `VK_SHIFT` /
-  `VK_CONTROL` / `VK_MENU`, leaving the scan code and extended bit as the only
-  discriminators — which is why it sets `scan = SCANCODE_RSHIFT` explicitly for
-  Right Shift, and why its bare `0xFF` for Ctrl and Alt is worth asking about
-  (`MODIFIERS.md` s2b).
-
+  The bit *does* decide the side when the caller passes the **generic** VK, which
+  is what Keyman's `do_keybd_event` does — hence its explicit
+  `scan = SCANCODE_RSHIFT` for Right Shift.
 - [ ] **H5 — Diagnostic script for affected machines.** One pass collecting:
   `Zap Virtual Key Code` (both registry hives), `LowLevelHooksTimeout`,
   async + sync + toggle state for all 17 relevant VKs, focus-thread HKL, Keyman
@@ -532,31 +516,24 @@ gates live in [`capslock/TODO.md`](capslock/TODO.md).
 
 ## 6. Suggested order
 
-1. ~~**I1**~~ is answered for everything measurable on this machine (2026-08-25);
-   only affected field hardware is still owed, and `Phantom_RCTRL.md` §7 argues
-   that no longer decides severity. **I5** is now the one that changes what the
-   rest of this list may claim — it sets the coverage claims, and today it is
-   inference. Do it first.
-2. ~~**H4**~~ closed 2026-08-25 by archiving the four bad scripts. The rule it
-   existed to enforce still stands: quote numbers from `kmproof.ps1`,
-   `kmmods.ps1` and `kmaltgr.ps1` only.
-3. **F1 / F2 / F3** — self-contained, reviewable, and independent of the Cache A
+1. **I5** sets the coverage claims for everything else in this list, and today it
+   is inference rather than measurement. Do it first — it decides what the rest
+   may claim.
+2. **F1 / F2 / F3** — self-contained, reviewable, and independent of the Cache A
    question. Gate on **T1-T5**. Settle **F5** with the reviewer before opening.
-4. ~~**H2 -> H1 -> H3**~~ (built as `kmmods.ps1`), ~~**T9**~~ and ~~**T10**~~ are
-   done, all 2026-08-24. **I12** has had four hypotheses killed and is down to
-   one fork that needs a separate injector process to resolve — no longer cheap,
-   so weigh it against **I1**, which is cheap and higher-value. Then **I7** if
-   affected hardware can be found.
-5. **I2 / I3 / I4 / I6 / I8 / I9 / I10 / I11 / I12** as the remaining open
+3. **I12** is down to one fork that needs a separate injector process to resolve —
+   no longer cheap, so weigh it against **I7**, which needs affected hardware to be
+   found first.
+4. Quote numbers from `kmproof.ps1`, `kmmods.ps1` and `kmaltgr.ps1` only.
+5. **I2 / I3 / I4 / I6 / I8 / I9 / I10 / I11** as the remaining open
    questions.
    **I3** is the one that blocks a complete field story for the Cache A PR.
    **I8** is the one most likely to turn out to be a co-factor rather than a dead
    end, since it independently explains the post-update clustering. **I10** and
    **I11** are cheap to check and both are *different defects* that would
    otherwise be misfiled as this one — I11 costs nothing at all, since every
-   `kmmods.ps1` run already collects the evidence. **H6 is closed and was a false
-   alarm** — I4 does *not* need re-running on its account, contrary to what this
-   list said earlier.
+   `kmmods.ps1` run already collects the evidence. **H6 is closed** — I4 does
+   *not* need re-running on its account.
 6. **D1-D6** only when the Cache A work is picked up. **D1** should land as a
    shared helper with #16423's resync, not as a second independent patch.
 

@@ -638,9 +638,8 @@ and cheaper than "restart Keyman".
   ships as `windows/src/support/fakefreeze/` (mcdurdin, 2025-11-17). The only
   reason nobody else can run it is that the directory has no `build.sh`, so
   `./windows/build.sh` never produces it — `TEST-PLAN.md` **P0**.
-- ~~The **US-layout control was never run**, so "Keyman is required" is a strong
-  inference from the code path, not a measured fact.~~ **Now measured** — see
-  `TRIGGER.md` §3. Three-arm controlled test, same stimulus and load throughout:
+- **"Keyman is required" is measured, not inferred** — see `TRIGGER.md` §3.
+  Three-arm controlled test, same stimulus and load throughout:
   US English **0/10** wedged, Microsoft Cameroon QWERTY 2017 **0/10** wedged
   (output byte-identical to Keyman's when working), Keyman wedged. Switch-only
   control with no stall: 0/10. "Keyman is required" is a fact, not an inference.
@@ -661,7 +660,7 @@ and cheaper than "restart Keyman".
 - The **watchdog hypothesis this investigation started from is not supported** —
   every reproduction here was obtained with the watchdog's hook-reinstall never
   provoked at all (`kmproof.ps1` 3/3 candidate I, 10/10 sweep; `kmmods.ps1` six
-  slots 2/2). The freeze alone is sufficient. Volunteer this: it agrees with
+  slots 2/2). The freeze alone is sufficient. This agrees with
   mcdurdin's own note on #8064 that the watchdog PRs probably did not resolve it.
 - `serialkeyeventserver.cpp` ends in `#endif // !_WIN64`. Confirm the equivalent
   path for 64-bit host apps before assuming a fix covers them.

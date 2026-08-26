@@ -59,8 +59,8 @@ deferred-resync flag.
 
 **T-R1** and **T-R2** are the cleanest red-to-green tests in the whole
 investigation — they fail today, pass once F1/F2 land, and need no new API, no
-stall, no timing, no elevation and no desktop. They were originally drafted in
-the parent plan; they belong with the defect they test.
+stall, no timing, no elevation and no desktop. They live here because this is the
+defect they test.
 
 The parent repo keeps the harness description and the Cache A material. Both sets
 of tests land in the same [`keyman32` gtest suite][tests].

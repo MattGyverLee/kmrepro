@@ -502,11 +502,10 @@ control on a path with no branch in it. Cheap if such a keyboard is already at
 hand; not worth sourcing one, and **not** a substitute for the field-hardware
 reading that item 2 actually needs.
 
-This closes a gap `FIX-PROPOSAL.md` used to list as unexplained — *"the field
-reports describe persistence until a Keyman restart"* — and that caveat has now
-been rewritten there to point here.
-For L/R Shift and L/R Alt the wedge self-heals on the next physical tap, which is
-why the repro kept seeing it clear. For a missing-key modifier it cannot heal.
+This is what explains persistence until a Keyman restart, the behaviour the field
+reports describe; `FIX-PROPOSAL.md` points here for it. For L/R Shift and L/R Alt
+the wedge self-heals on the next physical tap, which is why the repro sees it
+clear. For a missing-key modifier it cannot heal.
 **Persistence-until-restart is expected behaviour when the latched key does not
 physically exist.**
 
@@ -764,11 +763,10 @@ it and nothing until now was looking.
 The harness has only ever exercised LShift and RAlt. Three gaps, in priority
 order:
 
-1. ~~**Ctrl has never been tested at all**~~ — **done 2026-08-24.** Both sides
-   latch, 7/7 each, deterministically. See §2b.
-2. ~~**A missing-key arm.**~~ — **done 2026-08-24**, `kmmods.ps1 -Latch`. Only the
-   exact matching KEYUP cleared a latched Right Ctrl; neither typing nor a Left
-   Ctrl tap touched it. See §3b. Still worth confirming on real affected hardware
+1. **Ctrl is covered.** Both sides latch, 7/7 each, deterministically. See §2b.
+2. **The missing-key arm is covered** (`kmmods.ps1 -Latch`). Only the exact
+   matching KEYUP cleared a latched Right Ctrl; neither typing nor a Left Ctrl tap
+   touched it. See §3b. Still worth confirming on real affected hardware
    (`TODO.md` I7), but the claim no longer rests on code reading alone.
 3. **The AltGr-to-Ctrl extended-bit question** (§3d item 3). An LL-hook logger
    recording `vkCode` / `scanCode` / `LLKHF_EXTENDED` for the synthetic Ctrl that

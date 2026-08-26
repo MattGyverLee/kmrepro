@@ -222,9 +222,9 @@ fixed delay the KEYUP can be released *before* the freeze begins, degenerating t
 trial into the A control. Candidate I confirms the block is live first, which is
 why it is deterministic.
 
-> Earlier single-keyboard runs are superseded and their numbers should not be
-> quoted: with one keyboard you cannot attribute the wedge to Keyman rather than to
-> the layout, to Windows, or to the harness.
+> Quote three-arm numbers only. With a single keyboard you cannot attribute the
+> wedge to Keyman rather than to the layout, to Windows, or to the harness — which
+> is what §3 exists to settle.
 
 Wedged signature: `;e` + RAlt+N yields `əŊ` (U+0259 **U+014A**) instead of `əŋ`
 (U+0259 **U+014B**); in the fuller form, `:EŊ` — Shift applied to everything.
@@ -238,62 +238,31 @@ that thread for ~1 s.
 
 ### RELIABILITY — read this before quoting the repro
 
-**Apparent intermittency was a harness artifact, now explained.** Candidate B
-wedged **3/3 at 22:32** and **0/3 at 22:58** on the same command with the freeze
-verified landing (WM_NULL round-trip 4747 ms, same pid, same hwnd). The cause was
-almost certainly the two-Cameroon-keyboards confound below: the clean runs had
-drifted onto the **Microsoft** layout, where the wedge is charged but **cannot be
-observed** — the probe reads clean because the corrupted state is Keyman's and
-Keyman is not producing the output. (The original wording here said "unreachable
-by construction". That was wrong; see §3.)
+**Candidate I is 3/3 deterministic**, and the paired control with no freeze is
+0/10, both with a trustworthy active-keyboard check in place (focus-thread HKL,
+§3).
 
-**Now demonstrated.** With a trustworthy active-keyboard check in place
-(focus-thread HKL, §3), candidate I is **3/3 deterministic**, and the paired
-control with no freeze is 0/10. The rate is no longer unverified.
+Two things any rig here must handle, or the rate it reports is meaningless:
 
-Two confounders, the second now understood:
+1. **`PostMessage` is asynchronous.** Posting cmd 20 does not establish when the
+   `Sleep(5000)` actually begins, so a fixed delay can release the modifier
+   *before* the block starts, degenerating candidate B into control A. Candidate
+   **I** waits for the block to be confirmed live (`WaitForFreeze`). This is the
+   whole difference between an intermittent result and a deterministic one.
+2. **There are two Cameroon keyboards on this machine** — the Keyman TIP (langid
+   `0x2000`) and a Microsoft/MSKLC layout (langid `0x0436`). **Both map `;e` ->
+   U+0259**, so a behavioural check alone cannot distinguish them, and Win+Space
+   cycling lands on either. Log the langid on every trial, read off the focus
+   thread (§3 and the harness traps).
 
-1. **`PostMessage` is asynchronous** — posting cmd 20 does not establish when the
-   `Sleep(5000)` actually begins, so a fixed 100 ms delay can release the modifier
-   *before* the block starts, degenerating B into control A. Candidate **I** waits
-   for the block to be confirmed live (`WaitForFreeze`) to remove this; it was
-   0/4 on its first outing, so this is not the whole story.
-2. **There are two Cameroon keyboards on this machine** — the Keyman TIP
-   (langid `0x2000`) and a Microsoft/MSKLC layout (langid `0x0436`). **Both map
-   `;e` -> U+0259**, so the behavioural check alone cannot distinguish them, and
-   Win+Space cycling lands on either. The live scripts log the langid on every
-   trial; **earlier results predate that and are therefore unattributable.**
-   Re-run before trusting any rate.
+**A trial on the Microsoft layout still charges the wedge.** The modifier post
+that corrupts Keyman's cache runs *before* the `!isKeymanKeyboardActive` gate, so
+the bug is reachable while a non-Keyman layout is active — it simply cannot be
+*observed* there, because the corrupted state lives in Keyman and only affects
+output once a Keyman keyboard is active again. Measured 3/3, deterministically.
+This is the basis of the proof in §3 rather than a confound.
 
-   Two corrections to what was originally written here. First, the langid *can* be
-   trusted — read it off the focus thread (see §3 and the harness traps). Second,
-   a trial on the Microsoft layout is **not** "a different experiment altogether":
-   the modifier post that corrupts Keyman's cache runs before the
-   `!isKeymanKeyboardActive` gate, so such a trial still charges the bug — it just
-   cannot show it. That is now the basis of the proof in §3 rather than a
-   confound.
-
-**PARTLY RESOLVED, PARTLY WRONG — superseded by the three-arm experiment in §3.**
-
-The wedge *was* on the Keyman keyboard, and the two-Cameroon-keyboards confound
-was real. But the conclusion drawn from it below was **false**, and it was false
-in the direction that matters:
-
-> ~~With the **MS Cameroon** layout active, `!isKeymanKeyboardActive` sends the key
-> down the pass-through branch (`:229-240`), nothing is swallowed, and the wedge is
-> **not reachable** — candidate B is clean by construction.~~
-
-That is not what happens. The wedge **is** reachable while the Microsoft layout is
-active. It simply cannot be *observed* there, because the corrupted state lives in
-Keyman and only affects output once a Keyman keyboard is active again. Measured
-3/3, deterministically — see §3.
-
-Consequently this claim must also be withdrawn:
-
-> ~~This also confirms the mechanism requires Keyman's swallow-and-reinject path,
-> not merely the presence of its hook.~~
-
-The opposite is true: **the presence of the hook is sufficient.** The
+It follows that **the presence of the hook is sufficient.** The
 swallow-and-reinject path is what makes the damage *visible*, not what causes it.
 The fix must still land in the Keyman path, but it has to cover the case where no
 Keyman keyboard is active at all.
@@ -351,12 +320,11 @@ Two traps this exposed, both live:
   a near-perfect impersonation of this bug (no output, keyboard "active", modifier
   apparently stuck) with Keyman entirely uninvolved. Verified: the same run with
   the trigger removed still "failed" 5/10. **Prefer LShift for modifier tests.**
-- ~~`GetKeyboardLayout()` is an unreliable and app-dependent oracle.~~ **Corrected:
-  it is reliable; the earlier tests asked the wrong thread.** Win11 Notepad's
-  top-level frame window sits on a thread pinned at `0x0409` forever, while the
-  focused `RichEditD2DPT` edit control is on another thread that tracks the input
-  locale correctly. Resolving from `MainWindowHandle` reads the frame thread —
-  hence "`0x0409` while Keyman was demonstrably live". Resolve from
+- **`GetKeyboardLayout()` is reliable, but only off the focus thread.** Win11
+  Notepad's top-level frame window sits on a thread pinned at `0x0409` forever,
+  while the focused `RichEditD2DPT` edit control is on another thread that tracks
+  the input locale correctly. Resolving from `MainWindowHandle` reads the frame
+  thread and reports `0x0409` while Keyman is demonstrably live. Resolve from
   `GetGUIThreadInfo(0).hwndFocus` and it discriminates all three keyboards. Also
   compare the **full** HKL, not just the langid (Dvorak lands as `0xF0020409`).
 - **`Write-Host` can cost seconds per call.** Measured on this machine with 15

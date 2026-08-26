@@ -178,8 +178,6 @@ worst keys are invisible to the obvious oracle. Note that neither of those is a
 
 ### This repo's own retractions
 
-Offer these before anyone finds them.
-
 - **The watchdog hypothesis this investigation started from is wrong.** Provoking
   the hook reinstall is not required for any of it: every reproduction here was
   obtained with the reinstall never provoked at all (`kmproof.ps1` 3/3 candidate

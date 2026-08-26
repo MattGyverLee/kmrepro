@@ -319,8 +319,7 @@ TEST_F(KEYBD_SHIFT, RightControlCollapsesToExtendedControl) {
   T-P4: Right Shift is the exception to Keyman's own synthesized-key marker.
   Shift's side is carried by the scan code alone, so do_keybd_event must spend the
   0xFF marker slot on SCANCODE_RSHIFT instead -- see the keybd_shift.cpp file
-  comment. The extended bit is NOT how Shift's side is decided; that is the
-  retracted hazard 3 in README.md, asserted here so it stays retracted.
+  comment. The extended bit is NOT how Shift's side is decided.
 */
 TEST_F(KEYBD_SHIFT, RightShiftCollapsesToShiftWithRightScanCode) {
   kbd[VK_RSHIFT] = 0x80;
@@ -833,9 +832,9 @@ TEST(NORMALIZE_MODIFIER_VK, CtrlAndAltChiralityComesFromExtendedFlag) {
 
 /*
   T-S6: Shift takes its side from the scan code, and the extended flag is ignored
-  entirely. This is the code-level counterpart of the wire measurement that
-  retracted hazard 3 in README.md: injecting VK_RSHIFT with and without the
-  extended flag produced byte-identical events at a WH_KEYBOARD_LL hook.
+  entirely. This is the code-level counterpart of the wire measurement in
+  README.md: injecting VK_RSHIFT with and without the extended flag produces
+  byte-identical events at a WH_KEYBOARD_LL hook.
 */
 TEST(NORMALIZE_MODIFIER_VK, ShiftChiralityComesFromScanCodeOnly) {
   BYTE vk = 0;
@@ -871,10 +870,9 @@ TEST(NORMALIZE_MODIFIER_VK, RejectsNonModifiersWithoutWriting) {
 
 #### S1 — `RefreshModifierShiftState` (Cache B; belongs to `capslock/`)
 
-Listed here because the plan's earlier draft listed it, but this seam serves the
-**Caps Lock / Cache B** defect (#16422 / #16423), and the tests that consume it
-live in [`capslock/TEST-PLAN.md`](capslock/TEST-PLAN.md). Recorded here so the two
-plans do not both claim it.
+This seam serves the **Caps Lock / Cache B** defect (#16422 / #16423), and the
+tests that consume it live in [`capslock/TEST-PLAN.md`](capslock/TEST-PLAN.md).
+Recorded here so the two plans do not both claim it.
 
 `GetCapsAndNumlockState` has no header declaration at all — only a file-local
 forward declaration at `kmhook_getmessage.cpp:71` — so `aiTIP.cpp:186` cannot

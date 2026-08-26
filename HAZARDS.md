@@ -57,12 +57,10 @@ Dvorak lands as `0xF0020409` and would silently break an ASCII oracle.
 **both** readings — frame thread and focus thread — plus a `Diverged` flag, so a
 stale frame-thread value is visible rather than silently believed.
 
-This was originally written as "`GetKeyboardLayout()` is an unreliable oracle."
-That was a wrong-thread artifact and is retracted **for Notepad**, which is the
-only target in scope. It is not a general retraction: an app that switches
-keyboards programmatically rather than through a user TSF switch takes a
-different code path, and that case was never re-tested with the focus-thread fix.
-If you ever measure one, type and read back rather than trusting the HKL.
+**Scope of that claim:** it holds for Notepad, which is the only target here. An
+app that switches keyboards programmatically rather than through a user TSF
+switch takes a different code path, and that case is unmeasured. If you ever
+target one, type and read back rather than trusting the HKL.
 
 ## H4 — `keybd_event` with `dwExtraInfo = 0` is deliberate
 

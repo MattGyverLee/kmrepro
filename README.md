@@ -161,25 +161,17 @@ Both cost a round of false results. Any new harness can reintroduce them.
    can let a 5 s freeze expire before the probe runs, silently turning a trial
    into a no-freeze control.
 
-A third was suspected and then **disproved** — recorded because the retraction is
-the useful part:
+A third was raised and **disproved** — the one-line retraction, so nobody
+re-raises it:
 
-3. **Right Shift marked extended — cosmetic, not a bug.** `kmproof.ps1:288` had
-   `@{V=0xA1;E=$true; L='RShift'}`. Right Shift really is scan `0x36` and
-   unextended, so the entry was wrong on its face, and the first write-up
-   concluded `ClearMods` had never released RShift and that `TODO.md` I4 needed
-   re-running against a "five-key sweep".
+3. **Right Shift marked extended is cosmetic, not a bug.** Measured at the wire
+   with `kmaltgr.ps1` (2026-08-25): injecting `VK_RSHIFT` with and without the
+   extended flag yields byte-identical events at a `WH_KEYBOARD_LL` hook.
 
-   **That conclusion was wrong.** Measured at the wire with `kmaltgr.ps1`
-   (2026-08-25), injecting `VK_RSHIFT` with and without the extended flag yields
-   byte-identical events at a `WH_KEYBOARD_LL` hook — both `RSHIFT scan=0x36
-   EXT|INJ`. Windows resolves the side from the side-specific **virtual key**
-   (`0xA1`), not the scan code or the flag. The sweeps were always six keys and
-   I4 is unaffected. The entry is now `E=$false` for form only.
-
-   The bit *does* decide the side when the caller passes the **generic** VK —
-   which is what Keyman's `do_keybd_event` does, and why it sets
-   `scan = SCANCODE_RSHIFT` explicitly for Right Shift.
+   Windows resolves the side from the side-specific **virtual key** (`0xA1`), not
+   the scan code or the flag. The bit *does* decide the side when the caller
+   passes the **generic** VK — which is what Keyman's `do_keybd_event` does, and
+   why it sets `scan = SCANCODE_RSHIFT` explicitly for Right Shift.
 
 ---
 

@@ -154,10 +154,9 @@ latched the slot, survived typing `jkq`, survived a Left Ctrl tap, and cleared
 only on the exact matching KEYUP — was already a demonstration of the *general*
 seed, not merely of Keyman's own re-assertion pattern.
 
-§3b used to describe that byte pattern as *"the byte pattern `keybd_shift_reset`
-produces"*. **That was wrong, and it has been corrected there.**
-`keybd_shift_reset` stamps `scan = SCAN_FLAG_KEYMAN_KEY_EVENT` (`0xFF`,
-`keybd_shift.cpp:169`); the harness sends the real `0x1D`. The correct reading is
+Note that this is *not* specifically the byte pattern `keybd_shift_reset`
+produces: that stamps `scan = SCAN_FLAG_KEYMAN_KEY_EVENT` (`0xFF`,
+`keybd_shift.cpp:169`), while the harness sends the real `0x1D`. The reading is
 the stronger one: it is the byte pattern **any** caller doing
 `keybd_event(VK_CONTROL, ..., KEYEVENTF_EXTENDEDKEY, ...)` produces — and, unlike
 Keyman's own `0xFF` events, it is one the `:229-233` filter cannot tell from
@@ -370,9 +369,5 @@ Two notes for the PR text:
   `VK_CONTROL` with one flag bit, from any injector, needing to happen once. That
   is a stronger and simpler motivation for the resync than the hardware story,
   and it is defensible from source alone.
-- ~~`FIX-PROPOSAL.md:167` can drop *"The field reports describe persistence until a
-  Keyman restart; that gap is unexplained."*~~ **Done.** That caveat now states the
-  explanation instead: the latched key does not physically exist, so the clearing
-  event cannot be produced (§3), and Cache A has no other resync path (§4).
 
 [i8064]: https://github.com/keymanapp/keyman/issues/8064

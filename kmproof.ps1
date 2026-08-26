@@ -285,25 +285,17 @@ function Kd([int]$v, [switch]$E) { $f = 0; if ($E) { $f = $EXT }; [Kp]::keybd_ev
 function Ku([int]$v, [switch]$E) { $f = $UP; if ($E) { $f = $f -bor $EXT }; [Kp]::keybd_event([byte]$v, [byte][Kp]::MapVirtualKey($v,0), $f, [UIntPtr]::Zero) }
 function Tp([int]$v, [int]$g = 70, [switch]$E) { Kd $v -E:$E; Start-Sleep -Milliseconds 40; Ku $v -E:$E; Start-Sleep -Milliseconds $g }
 
-# RShift set to E=$false for correctness of form only. It changes NOTHING about
-# this script's behaviour, past or present - see below before concluding it does.
+# RShift carries E=$false as a matter of form: Right Shift is scan 0x36 and is
+# not extended, while only RCtrl (E0 1D) and RAlt (E0 38) are. The flag makes no
+# difference to behaviour here either way.
 #
-# Right Shift is scan 0x36 and is not extended; only RCtrl (E0 1D) and RAlt
-# (E0 38) are. So E=$true was wrong on its face.
-#
-# BUT IT WAS HARMLESS, AND THE FIRST WRITE-UP OF THIS WAS WRONG.
 # Measured at the wire with kmaltgr.ps1, 2026-08-25. Injecting VK_RSHIFT with the
 # extended flag and without it produces byte-identical events at a
 # WH_KEYBOARD_LL hook - both `RSHIFT scan=0x36 EXT|INJ`. Windows resolves the
 # side from the side-specific VIRTUAL KEY (0xA1), not from the scan code or the
-# extended flag, and it reports LLKHF_EXTENDED for Right Shift either way. The
-# flag is simply ignored on this path.
-#
-# So ClearMods and TapAllMods HAVE always released and tapped Right Shift
-# correctly. The six-modifier KEYUP sweep really was six keys. In particular
-# TODO I4 - the one run that went from wedged to emitting nothing - does NOT
-# need re-running on account of this, and an earlier draft of this comment
-# claiming otherwise was mistaken.
+# extended flag, and it reports LLKHF_EXTENDED for Right Shift either way. So
+# ClearMods and TapAllMods do release and tap Right Shift correctly, and the
+# six-modifier KEYUP sweep is six keys.
 #
 # WHERE THE EXTENDED BIT DOES DECIDE THE SIDE: when the caller passes the
 # GENERIC vk. Keyman's do_keybd_event (keybd_shift.cpp:63-88) collapses

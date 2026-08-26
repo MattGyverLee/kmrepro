@@ -66,18 +66,7 @@ Note the last row: this repo's own finding that the watchdog is not the mechanis
 
 ---
 
-## 4. Things in this repo you should not lead with
-
-Being surprised by your own material is worse than being surprised by theirs.
-
-- **The watchdog hypothesis this investigation started from was wrong.** Every reproduction in this repo was obtained with the watchdog's hook-reinstall never provoked at all — the freeze alone is sufficient (`kmproof.ps1` 3/3 candidate I, 10/10 sweep; `kmmods.ps1` six slots 2/2). Do not present it, but **do** volunteer it: it corroborates Marc's own note (§3, last row).
-- **H6 (Right Shift extended flag) was raised, then disproved.** Injecting `VK_RSHIFT` with and without the extended flag yields byte-identical events at the hook. See [README.md]. If you mentioned it earlier, correct it before they find it.
-- **Earlier harness scripts carried two known-bad patterns** — the HKL resolved from the top-level window rather than the focus thread, and `Write-Host` (measured 4301 ms/line on a congested console; a *correctness* hazard, since it can let a 5 s freeze expire before the probe runs). They were retired rather than fixed ([TODO][todo] H4), so **every number in this repo comes from `kmproof.ps1`, `kmmods.ps1` or `kmaltgr.ps1`**, which are clean on both counts. If an older figure surfaces from an earlier draft, it is not citable.
-- **The summary table inside `logs/mods-prefix-latch-evidence.txt` is the pre-`self`-column version** and shows the immune keys as "2/2 latched" from §2c residue. Quote [MODIFIERS.md] §2b instead.
-
----
-
-## 5. Honest gaps — have the answer ready
+## 4. Honest gaps
 
 | gap | status | what to say |
 |---|---|---|
@@ -86,11 +75,12 @@ Being surprised by your own material is worse than being surprised by theirs.
 | **I5 — does Cache A exist in the 64-bit engine?** | open, inference only | `serialkeyeventserver.cpp` is `#ifndef _WIN64`. Coverage claims depend on this |
 | **I12 — the latch set accumulates within a session** | open, 4 hypotheses killed | Not a timer, not focus-change resync. Only a new process cleared it. Do not offer a mechanism |
 | **One machine, one Windows build, one Keyman build** | — | Say it before they do |
+| **The summary table inside `logs/mods-prefix-latch-evidence.txt`** | stale | It is the pre-`self`-column version and shows the immune keys as "2/2 latched" from §2c residue. The per-trial lines above it are correct; quote [MODIFIERS.md] §2b rather than that table |
 | **I7 — hardware with no physical Right Ctrl** | partly answered | This dev machine *is* that class — on the user's report, corroborated by a wire capture that shows only `LCTRL` taps. Do not say "confirmed at the wire": no capture can prove a key is absent. Field hardware still owed |
 
 ---
 
-## 6. Practical realities
+## 5. Practical realities
 
 - **CI:** no GitHub Actions workflow runs Windows unit tests — no `windows-latest` job exists anywhere. Windows tests run on **TeamCity** only, via `/windows/build.sh test`. `test:arm64` is commented out pending [#15065][i15065].
 - **Build:** Delphi 10.3/11 + VS 2022 v143 with x86/x64/ARM64 toolchains are required to build and run the suite locally. If you cannot build it, say so early rather than proposing tests you cannot run.
@@ -100,23 +90,23 @@ Being surprised by your own material is worse than being surprised by theirs.
 
 ---
 
-## 7. Likely pushback, and the answer
+## 6. Questions this answers
 
-**"We can't reproduce it."** → Load was never the mechanism: 32 CPU hogs gave 0/10; the freeze alone with zero load gave 10/10 ([TEST-PLAN][tp] §1). Marc's own [`LowLevelHookWatchDog.cpp`][wd] says the hook is only uninstalled *"if a key is pressed while Keyman is unresponsive"* — and for this bug it must be a modifier **KEYUP**. That never coincides by accident on an idle VM. `fakefreeze.exe` makes it deterministic.
+**Reproducing it.** Load was never the mechanism: 32 CPU hogs gave 0/10; the freeze alone with zero load gave 10/10 ([TEST-PLAN][tp] §1). [`LowLevelHookWatchDog.cpp`][wd] documents the precondition — the hook is only uninstalled *"if a key is pressed while Keyman is unresponsive"* — and for this bug that key must be a modifier **KEYUP**. That never coincides by accident on an idle VM, which is why it has resisted reproduction. `fakefreeze.exe` makes it deterministic.
 
-**"Windows E2E tests need elevation and are expensive."** → Agreed, and not what is proposed. The [`keyman32` gtest suite][vcx] links the engine as a **static library** into a console exe — no elevation, no TSF, no installed Keyman. `keybd_shift_release`/`keybd_shift_reset` never call `SendInput`; they fill a caller-supplied `INPUT[]`, so they are pure functions over a 256-byte array.
+**What the proposed tests require: no elevation, no TSF, no installed Keyman.** The [`keyman32` gtest suite][vcx] links the engine as a **static library** into a console exe. `keybd_shift_release`/`keybd_shift_reset` never call `SendInput`; they fill a caller-supplied `INPUT[]`, so they are pure functions over a 256-byte array. Nothing here needs a Windows E2E rig.
 
-**"Put the test in Core so it covers every platform."** → Core stores no modifier state; the platform hands it a `uint16_t` per event and Core passes it through ([`kmx_processor.cpp:263`][kmxp]). It receives the wrong bit with no second source of truth — structurally impossible, not merely hard. The channel that could carry truth is closed: [`keyman_core_api.h`][capi] documents the activation payload as *"Currently unused, must be nullptr."*
+**Why the test cannot live in Core.** Core stores no modifier state; the platform hands it a `uint16_t` per event and Core passes it through ([`kmx_processor.cpp:263`][kmxp]). It receives the wrong bit with no second source of truth — structurally impossible to test there, not merely awkward. The channel that could carry truth is closed: [`keyman_core_api.h`][capi] documents the activation payload as *"Currently unused, must be nullptr."*
 
-**"Does this affect the other platforms?"** → **No, except one.** Class A (re-injected unmatched modifier KEYDOWN) exists only on Windows — no `keybd_shift_reset` analogue exists in `linux/`, `mac/`, `android/` or `ios/`. Android and iOS do not use Core at all (KeymanWeb in a WebView); Android re-reads modifier state from every `KeyEvent` and filters modifier keys out before Keyman sees them; iOS has no hardware-key path whatsoever. The one real finding is **macOS**, which caches `currentModifiers` and *discards* the event's own flags — see [TEST-PLAN.md] §5.
+**Cross-platform scope — Windows only, with one exception.** Class A (re-injected unmatched modifier KEYDOWN) exists only on Windows; no `keybd_shift_reset` analogue exists in `linux/`, `mac/`, `android/` or `ios/`. Android and iOS do not use Core at all (KeymanWeb in a WebView); Android re-reads modifier state from every `KeyEvent` and filters modifier keys out before Keyman sees them; iOS has no hardware-key path whatsoever. The one real finding is **macOS**, which caches `currentModifiers` and *discards* the event's own flags — see [TEST-PLAN.md] §5.
 
-**"Just stop posting the modifier event when no Keyman keyboard is active."** → [TODO][todo] **D5** — recorded as a decision, not a task. Per the #7337 comment the post exists to keep the serialized queue in sync across keystrokes Keyman does not otherwise process. Suppressing it trades this bug for a different desync. D1 (re-validate the cache at batch start) handles it instead.
+**Why not simply gate the `:198` modifier post on `isKeymanKeyboardActive`.** [TODO][todo] **D5**, recorded as a decision rather than a task. Per the #7337 comment, that post exists to keep the serialized queue in sync across keystrokes Keyman does not otherwise process; suppressing it trades this bug for a different desync. D1 (re-validate the cache at batch start) handles it without that cost.
 
-**"Is this the same as the caps lock bug?"** → No. Same *class* — stale cached state — different cache and different severity. Cache A injects real keypresses system-wide; Cache B (#16422/#16423) only mis-matches rules. [MODIFIERS.md] §1 has the table.
+**Relationship to the Caps Lock bug.** Same *class* — stale cached state — but a different cache and a different severity. Cache A injects real keypresses system-wide; Cache B (#16422/#16423) only mis-matches rules. [MODIFIERS.md] §1 has the table.
 
 ---
 
-## 8. What to ask for
+## 7. What to ask for
 
 1. Confirm **#8064 is the home** for this evidence.
 2. `build.sh` for [`fakefreeze`][ff] so the stimulus is reachable by anyone — [TEST-PLAN.md] **P0**.
