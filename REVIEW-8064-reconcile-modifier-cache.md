@@ -375,13 +375,22 @@ make it a `ReconcileModifierCache`-style seed and the sentence becomes true.
 - `k32_lowlevelkeyboardhook.cpp:190` and `:199` still say
   `//TODO: #8064. Can remove debug message once issue #8064 is resolved`. If this
   branch closes the issue, they should go.
-  > **DISPOSITION - the TODO comments removed; the debug messages kept.** The
-  > `SendDebugMessageFormat` calls they referred to are a candidate triage signal for
-  > telling the serializer path from the OSK path, so deleting them would destroy a
-  > signal this work needs. They are also the *live* alternative to `KL.Log`, which
-  > turns out not to exist at all: `klog.pas:26` reads `{DEFINE KLOGGING}` with the
-  > `$` missing, and `KLOGGING` appears nowhere else in the tree, so every `KL.Log`
-  > body compiles to an empty procedure.
+  > **DISPOSITION - not done, deliberately. Both TODOs and both debug messages stay.**
+  > The TODO's own precondition is "once issue #8064 is resolved", and this work does
+  > not resolve it: the G3 audit found the on-screen keyboard unmitigated and FR-011
+  > unsatisfied. Removing the reminder while leaving the diagnostic it points at would
+  > be the worst of the three options.
+  >
+  > They were briefly removed on the mistaken grounds that these two messages were a
+  > G3 triage signal. They are not -- the signal `TRIAGE.md` relies on is the key-event
+  > log at `k32_lowlevelkeyboardhook.cpp:151`, which carries the scan code. Neither
+  > `[FHotkeyShiftState:%x]` nor `isModifierKey [...]` appears in the procedure. Reverted;
+  > the file is byte-identical to master.
+  >
+  > Worth recording alongside: `KL.Log` does not exist at all. `klog.pas:26` reads
+  > `{DEFINE KLOGGING}` with the `$` missing, and `KLOGGING` appears nowhere else in the
+  > tree, so every `KL.Log` body compiles to an empty procedure. That is why the
+  > `SendDebugMessageFormat` stream matters and should not be thinned casually.
 - `ProcessQueuedKeyEvents` checks `SendInput(...) == 0` but ignores a partial
   return. Not a latch source (the reset KEYDOWNs are last, so truncation drops
   them, which is the safe direction), but `!= m_nInputs` is the honest check.

@@ -115,7 +115,7 @@ inline in that file; the short version:
 | `13c083f216` | `test(windows): characterise the lost-modifier-KEYDOWN mirror defect` (deliberately red) |
 | `00b17ee604` | `fix(windows): release modifiers the OS holds but the cache does not` |
 | `6b07cff02b` | `test(windows): probe what GetKeyboardState returns on a fresh thread` |
-| `14d2dc5c08` | `docs(windows): correct what the modifier-cache seed actually does` |
+| `14d2dc5c08` | `docs(windows): correct what the modifier-cache seed actually does` — the `//TODO: #8064` removal it also made was later reverted, since #8064 is not resolved |
 | `e09c7bf645` | `docs(windows): enumerate modifier producers and add the triage procedure` |
 | `cb4911ac5b` | `docs(windows): link the drafted producer issues and correct a source path` |
 | `c1a7fa7992` | `fix(windows): release sticky OSK modifiers on every teardown path` — **UNVERIFIED, Delphi unavailable** |
