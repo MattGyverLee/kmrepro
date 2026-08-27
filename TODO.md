@@ -771,6 +771,59 @@ It is **not** a defect of that branch and must not be folded into it.
   entirely ordinary use -- hold a modifier, click a key on the OSK, let go. No
   keyboard switching, no teardown, no unusual sequence, no chirality involved.
 
+- [ ] **I19 — OSK loses its visual keyboard (`VKI=nil`) and never recovers.
+  MEASURED 2026-08-27, NOT FILED, NOT A #8064 DEFECT.**
+  **Symptom as experienced:** the OSK's language chooser and the Keyman tray
+  icon stop tracking keyboard changes. Switching via the Windows/taskbar
+  switcher changes the keyboard at the OS level while Keyman's own view goes
+  stale. Reported as "hasn't worked all day".
+  **Measured cause,** from a `KLOGGING` build:
+  ```
+  [13:44:19.236] UpdateKeyboard: VKI<>nil, VKI.Keyboard<>nil [sil_cameroon_qwerty]
+  [13:44:19.411] UpdateKeyboard: VKI=nil        <-- 175 ms later
+  [13:47:04.650] UpdateKeyboard: VKI=nil        <-- still nil, across a keyboard switch
+  ```
+  `RefreshKeyboards` (`UfrmOSKOnScreenKeyboard.pas`) does
+  `VKI := nil; VisualKeyboards.Load; UpdateKeyboard(True)` -- and
+  `UpdateKeyboard` only *reads* `VKI`. Only `SelectKeyboard` restores it, driven
+  by `frmKeyman7Main.ActiveKeymanID` (`UfrmVisualKeyboard.pas:1302`), and if that
+  ID is stale or absent from `VisualKeyboards`, `VKI` stays nil indefinitely.
+  **Why it matters beyond the cosmetic:** `UpdateKeyboard` pins
+  `kbd.LRShift := True` whenever there is no visual keyboard, so the chiral
+  regime stops following the keyboard's AltGr flag entirely. Any test needing
+  the `True->False` collapse is unrunnable in this state and returns a null
+  result that looks like a pass. It blocked the #8064 step 8 verification twice
+  before the cause was found.
+  **Recovery:** restarting `keyman.exe` reloads it. It does not self-heal.
+  **Not #8064's:** `RefreshKeyboards` has always cleared `VKI` this way; nothing
+  on the branch touches it.
+
+- [ ] **I20 — `keymanhp.x64.exe` does not start, cause unknown.
+  PARTIALLY DIAGNOSED 2026-08-27.**
+  The installed binary was an unsigned dev overlay still declaring
+  `uiAccess="true"`, so Windows refused to launch it and `ShellExecuteExW` in
+  `UfrmKeyman7Main.StartKeymanHostProcess` failed with **8235**
+  (`ERROR_DS_REFERRAL`). Rebuilt with `uiAccess="false"` and installed; the
+  manifest is confirmed correct and the 8235 dialog is gone. **It still does not
+  run.** `StartKeymanHostProcess` reports failures to Sentry rather than
+  `KL.Log`, so the `KLOGGING` capture shows nothing, and `keymanhp.cpp` also
+  self-exits if it cannot validate its x86 parent -- either could explain it.
+  **Why it matters:** without a 64-bit host, `keyman.exe` has no agent inside
+  64-bit processes, which is the leading candidate for the stale
+  `ActiveKeymanID` behind [I19]. Note the hypothesis is *unconfirmed*: language
+  switching recovered after a reboot while `keymanhp` was still not running, so
+  it is not the whole story.
+
+- [ ] **I21 — `Shell_NotifyIcon` failing for the tray icon. MEASURED
+  2026-08-27, cosmetic, low priority.**
+  ```
+  KLog:TrayIcon: RefreshIcon(1; ...) = -1 [GLE:0]
+  ```
+  Repeated failures with `GetLastError` reporting 0. This is the stale Keyman
+  tray icon, measured rather than inferred. Worth a look mainly because it is a
+  second independent symptom of the same "Keyman's UI does not reflect reality"
+  cluster as [I19].
+
 ---
 
 ## 6. Suggested order
