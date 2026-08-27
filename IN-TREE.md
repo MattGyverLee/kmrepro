@@ -107,7 +107,7 @@ current, re-measured totals.
 | `keyman32.dll`, Win32 Debug | links clean, 0 warnings |
 | `keyman64.dll`, x64 Debug | links clean, 0 warnings |
 | `keymanarm64.dll` | **still not built** — no ARM64 MSVC libraries on this machine. See §6 |
-| Delphi | **still not installed** — the OSK (Pascal) changes remain uncompiled and unrun |
+| Delphi | ~~still not installed~~ **Delphi 12.0 CE, 2026-08-27** — the OSK changes are compiled and measured; see §2b |
 
 The 72/71 figure is the cumulative result of every commit on the branch, not just the four covered
 by this section — the branch grew by two more rounds of work after the original four-commit landing
@@ -177,10 +177,10 @@ producer and a field recurrence must be triaged rather than attributed. The
 enumeration is in the Keyman tree at
 `windows/src/test/manual-tests/GH-8064 - stuck-modifier-phantom-keydown/MODIFIER-PRODUCERS.md`.
 
-**Since superseded in part.** The two OSK findings referenced above were UNMITIGATED at this point
-in the history; §2a below closes one of them (the teardown-path chirality collapse) and leaves the
-other (the live click-off path) open. Do not read the paragraph above as still describing current
-standing on the OSK — see §2a and §6.
+**Since superseded.** The two OSK findings referenced above were UNMITIGATED at this point in the
+history. §2a closes the teardown-path chirality collapse; **§2b closes the live click-off as well**,
+and rows `2a` and `2b` of the producer enumeration are now `mitigated`, compiled and measured. Do not
+read the paragraph above as describing current standing on the OSK — see §2b.
 
 ### 2a. Four newest commits, 2026-08-27 — closing residual pathways a five-lens audit found
 
@@ -247,12 +247,12 @@ and `kbd.LRShift`, whose `SetLRShift` collapse (`essLCtrl`/`essRCtrl` → `essCt
 `essLAlt`/`essRAlt` → `essAlt`) was the reason teardown could release the wrong key or fail to release
 at all. This fixes the `SetLRShift` chirality collapse **for the teardown path only.** Also fixed:
 `kbdKeyPressed`'s stale-async re-press, and the `LRShift` regime is now frozen into `LLRShift` so a
-mid-keystroke keyboard switch cannot leave a suppression unrestored. **Still open: the live click-off
-path.** A fix was written and reverted this session, because the same `ShiftStateChange` function is
-also reached from `UpdateShiftStates`' 50 ms resync, whose press branch fires for physically-held
+mid-keystroke keyboard switch cannot leave a suppression unrestored. **The live click-off path was still open at this
+point**; a fix had been written and reverted, because the same `ShiftStateChange` function is also
+reached from `UpdateShiftStates`' 50 ms resync, whose press branch fires for physically-held
 modifiers — recording those into `FCachedShiftState` would let teardown release a key the user still
-has down, reintroducing the I2177 regression. Tracked in the Keyman tree's `MODIFIER-PRODUCERS.md` as
-Finding 4b.
+has down, reintroducing the I2177 regression. **Closed later the same day — see §2b**, which explains
+why that objection turned out not to apply.
 
 **`169d2f7c86` — `MODIFIER-PRODUCERS.md` and `TRIAGE.md` re-verified**, not merely re-read: new rows
 for the pass-through race and the eaten-event pipeline loss (both now mitigated, with the row noting
@@ -260,15 +260,63 @@ the underlying reasons a handoff can fail — the `INFINITE` mutex wait, `Messag
 events pending — are untouched; the hook merely degrades safely now), and a new row for
 process-termination-while-an-OSK-modifier-is-held (**UNMITIGATED** — no watchdog, no
 restore-on-start, and a blind release-all at startup was rejected as unsafe, since it would strip a
-modifier the user is genuinely holding at launch). Verdicts deliberately **not** upgraded: the two OSK
-findings keep UNMITIGATED even though fixes are now in the tree, because Delphi is not installed here
-and nothing compiled or ran. Rows 1 and 9 of the producer enumeration are marked mitigated but flagged
+modifier the user is genuinely holding at launch). Verdicts deliberately **not** upgraded at this point: the two OSK
+findings kept UNMITIGATED even though fixes were in the tree, because Delphi was not installed and
+nothing had compiled or run. **Both were upgraded on 2026-08-27 once it did — see §2b.** Rows 1 and 9 of the producer enumeration are marked mitigated but flagged
 **source-reasoned, not re-run** — the live `host32` harness that measured the original 5/5-to-0/5
 freeze reproduction has not been run against these changes. FR-011 remains unsatisfied; the banner
 still says four rows unmitigated.
 
 **Gates for this round:** `test:x86` 72 pass (1 disabled), `test:x64` 71 pass (1 disabled), both
 DLLs link clean with 0 warnings. ARM64 still not built; Delphi still not installed.
+
+### 2b. 2026-08-27 — Delphi arrives, the OSK fixes are measured, and two more defects fall out
+
+Delphi 12.0 CE was installed and the OSK changes compiled for the first time. Everything in §2a about
+the Pascal side had been source-reasoned; this is what happened when it ran. The record is in the
+Keyman tree at `evidence/run-osk-teardown-2026-08-27.txt` and `evidence/run-osk-clickoff-2026-08-27.txt`.
+
+**The checklist earned its keep immediately.** Step 6 — hold a physical modifier, click a sticky one,
+dismiss — **failed**. The teardown fix had reintroduced I2177. `UpdateShiftStates` ends with
+`kbd.ShiftState := GetAsyncShiftState`, so `kbd.ShiftState` continuously carries physically-held
+modifiers, and `kbdShiftChange` assigned it wholesale into `FCachedShiftState`; a click made while
+Shift was held cached `essShift` alongside the key clicked, and `ReleaseCached` released it. The
+`GetAsyncKeyState` gate cannot catch that, because a physically-held key genuinely *is* down. Three
+prior source reads had missed it, including one whose comment asserted the resync could not
+contaminate the cache "because `FCachedShiftState` is written from a click and only from a click" —
+true of *when* it is written, irrelevant to *what* it captures. Fixed in `4ca0945a12`.
+
+**Finding 4b was then closed, and the objection in §2a turned out not to apply.** Both previously
+rejected designs assumed the release path had to *maintain* `FCachedShiftState`, and a write from the
+50 ms resync is precisely what produced the I2177 regression. But picking the right VK needs only a
+**read** of a record that `kbdShiftChange` already guarantees excludes physically-held modifiers.
+Reads and removals cannot reintroduce I2177; only additive writes can. **The click-vs-resync
+distinction was never the requirement — it was an artifact of assuming a write.** `791c5f181a`.
+
+**One more defect, caused by the first fix.** `4ca0945a12`'s mask ran *before* `ShiftStateChange`, and
+after a `SetLRShift` collapse a click-off leaves `fkcss` carrying nothing from that family, so
+`* fkcss` stripped `essRCtrl` from the cache one line before the release read it. The 4b fix was
+correct and unreachable, and step 8 failed identically until `ea530407c2` reordered the two and
+widened the mask across the Ctrl/Alt families.
+
+**Verdicts.** Rows `2a` and `2b` are now `mitigated`, compiled and confirmed by executed
+reproductions in both collapse directions. FR-011 is down to two unmitigated rows, `2c` and `8`.
+
+**Method notes worth carrying forward.**
+
+- The final runs were taken with **`KLOGGING`** defined, so each verdict rests on the injected
+  `keybd_event` (`vk`/`scan`/`flags`) rather than on inference from a 60 ms modifier poller. Three
+  build cycles were spent inferring event shapes before this was enabled; it should have been step
+  one. Note the blind spot: it instruments `keyman.exe` only, and `keyman32.dll` injects from inside
+  hooked processes via the C++ ETW path, invisible to an `OutputDebugString` capture.
+- Two step-6 runs were **INCONCLUSIVE rather than failed**, because sending a chat message required
+  pressing Enter, which meant releasing the very key under test. A log cannot separate "the fix
+  released your Shift" from "the tester let go". Pre-typing and sending with the mouse fixed it; so
+  did the better instrument — after the dismissal, *typing a letter* and seeing whether it capitalises
+  answers the question with no timing judgement at all.
+- Three environment defects surfaced and are recorded as **I19**, **I20**, **I21** in `TODO.md`.
+  **I19 is the dangerous one**: when the OSK's `VKI` goes nil, `kbd.LRShift` is pinned True, and any
+  test needing the chiral collapse becomes unrunnable while still *appearing* to pass.
 
 ### The fix, as it originally shipped (historical — see §2a for the residual fixes layered on top)
 
