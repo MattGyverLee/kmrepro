@@ -729,6 +729,50 @@ it changed.
 
 ---
 
+## 5b. Follow-ups from the 2026-08-27 OSK verification run
+
+One item, found while running the `MODIFIER-PRODUCERS.md` checklist against a
+Delphi 12 build of `keyman.exe` on `fix/windows/8064-reconcile-modifier-cache`.
+It is **not** a defect of that branch and must not be folded into it.
+
+- [ ] **I18 — File the OSK character/modifier delivery race as its own issue.
+  MEASURED 2026-08-27, NOT FILED, NOT THIS BRANCH'S BUG.**
+  **Reproduction, as observed:** OSK open with nothing latched, physically hold
+  Left Shift, click `c` **on the OSK**, into Notepad.
+  Release Shift *immediately* after the click completes -> **lowercase `c`**.
+  Release Shift *a moment later* -> **uppercase `C`**.
+  Same click, same held modifier, different outcome.
+  **Why it is a defect and not a timing curiosity:** the mouse has already gone
+  **down and up** on the key before the release. The character is decided at that
+  point, and what the Shift finger does afterwards must not be able to reach back
+  and change it. The tester's own framing is the cleanest statement of it and
+  should go in the issue verbatim: *"releasing the shift after click down and up
+  on the c should not have an effect in the outcome."*
+  **Mechanism, and this is an expectation, not a measurement:** `do_keybd_event`
+  calls `keybd_event()`, which *posts* to the system input queue rather than
+  delivering synchronously; the physical Shift release posts to the same queue,
+  and Keyman's serial key event server additionally queues and replays injected
+  batches, widening the window. If the release is processed before the `c` is
+  translated, `ToUnicode` sees Shift up. **Nothing has instrumented this** --
+  `KL.Log` is compiled out (`KLOGGING` is commented out at `klog.pas:26`), so the
+  actual event ordering has not been observed. Do not state the mechanism as fact
+  in the issue.
+  **Why it is not this branch's bug:** the character injection path is textually
+  unchanged by `3d64aad790` and `cd2bd44dd0` -- `do_keybd_event(vk, scan, 0, 0)`
+  and its KEYUP are untouched. In this scenario `PrepState` and `FinalState` are
+  both no-ops anyway, because the 50 ms `tmrCheckTimer` resync has already put
+  `essShift` into `kbd.ShiftState`, so `fkcss` and `ass` both contain it and
+  neither branch fires. Confirmed by inspection only.
+  **Cheapest way to close the pre-existing question empirically:** swap back the
+  release binary kept at
+  `C:\Program Files (x86)\Common Files\Keyman\Keyman Engine\keyman.exe.bak-20260827-085104`
+  and repeat the `Cc` reproduction. Identical behaviour there settles it.
+  **Why it deserves priority over the other open OSK gap:** it is reachable in
+  entirely ordinary use -- hold a modifier, click a key on the OSK, let go. No
+  keyboard switching, no teardown, no unusual sequence, no chirality involved.
+
+---
+
 ## 6. Suggested order
 
 Reordered 2026-08-26; branch state re-checked 2026-08-27. The code is written; what is left is
