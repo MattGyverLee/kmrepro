@@ -72,63 +72,102 @@ msbuild.exe keyman32.vcxproj -t:Build -p:Platform=Win32 -p:Configuration=Debug -
 
 ## 2. What landed
 
-Four commits, in this order. The first is landable on its own: it characterises the defect without
-proposing a fix, so it keeps its value even if the fix is reworked in review.
+**Commit hashes below are current as of 2026-08-27.** The branch was rebased at some point after
+the original landing described in this section; every hash in this file up to the previous revision
+was a pre-rebase alias no longer reachable from `HEAD` (verified with `git merge-base --is-ancestor`
+against the untouched pre-rebase state, preserved locally as `backup/8064-preswap-4be29681b6`).
+Hashes below are remapped by matching commit subjects and, where a commit was folded into another
+during the rebase, by matching the test names and files each commit actually introduces. Two commits
+this file previously cited no longer exist as separable commits at all — see the *Follow-on* table's
+footnote.
 
-| commit | subject | files |
+Four commits, in this order, landed the Cache A fix itself. The first is landable on its own: it
+characterises the defect without proposing a fix, so it keeps its value even if the fix is reworked
+in review.
+
+| commit (current) | subject | files |
 |---|---|---|
-| `204e63493b` | `test(windows): characterise phantom modifier re-press in serial key event server` | `tests/keybd_shift.tests.cpp` (new), `tests/keyman32.tests.vcxproj` |
-| `a26aa611b5` | `fix(windows): reconcile cached modifier state with the OS before injecting` | `keymanengine.h`, `keybd_shift.cpp`, `serialkeyeventserver.cpp`, + tests appended |
-| `5274fec612` | `chore(windows): add a build entry point for the fakefreeze support tool` | `support/fakefreeze/build.sh` (new), `support/fakefreeze/fakefreeze.vcxproj`, `support/build.sh` |
-| `78a0c22edc` | `test(windows): add manual test for the stuck modifier phantom KEYDOWN` | `test/manual-tests/GH-8064 - stuck-modifier-phantom-keydown/README.md` (new) |
+| `914795bf58` | `test(windows): characterise the serial key event server modifier cache` | `tests/keybd_shift.tests.cpp` (new), `tests/keyman32.tests.vcxproj`, `serialkeyeventserver.cpp` |
+| `4aff8fc10e` | `fix(windows): clear cached modifiers the OS reports up before injecting` | `keymanengine.h`, `keybd_shift.cpp`, `serialkeyeventcommon.h`, `serialkeyeventserver.cpp`, + tests appended |
+| `bbb22576c2` | `chore(windows): add a build entry point for the fakefreeze support tool` | `support/fakefreeze/build.sh` (new), `support/fakefreeze/fakefreeze.vcxproj`, `support/build.sh` |
+| `b7971ec715` | `docs(windows): add the GH-8064 manual test, producer enumeration and triage` | `test/manual-tests/GH-8064 - stuck-modifier-phantom-keydown/README.md`, `MODIFIER-PRODUCERS.md`, `TRIAGE.md` (all new) |
 
-Totals: **671 insertions across 9 files**, of which the production change is **64 lines across 3
-files, roughly 40 of them comment**. The executable production change is one typedef, one
-declaration, a ten-line loop, and one call.
+Totals and the "64 lines across 3 files" production-change figure are unverified against the current
+tree and are superseded by §2's *Follow-on* and §2's newest-commits addendum below, which carry
+current, re-measured totals.
 
 ### Results
 
+**Current, 2026-08-27, at `HEAD` (`169d2f7c86`):**
+
 | gate | result |
 |---|---|
-| `test:x86` | **19/19 pass** (1 disabled) at `a26aa611b5`; **33/33 pass** (2 disabled) after the follow-on branch — see *Follow-on* below |
-| `test:x64` | **18/18 pass** (1 disabled) at `a26aa611b5`; **32/32 pass** (2 disabled) after the follow-on — the x86-only `isModifierKey` case correctly compiles out |
+| `test:x86` | **72 pass, 1 disabled** |
+| `test:x64` | **71 pass, 1 disabled** |
 | `keyman32.dll`, Win32 Debug | links clean, 0 warnings |
 | `keyman64.dll`, x64 Debug | links clean, 0 warnings |
-| `keymanarm64.dll` | **not built** — no ARM64 MSVC libraries on this machine. See §6 |
+| `keymanarm64.dll` | **still not built** — no ARM64 MSVC libraries on this machine. See §6 |
+| Delphi | **still not installed** — the OSK (Pascal) changes remain uncompiled and unrun |
+
+The 72/71 figure is the cumulative result of every commit on the branch, not just the four covered
+by this section — the branch grew by two more rounds of work after the original four-commit landing
+(a ten-commit follow-on, then a further round adding the `host32` reproduction harness) before the
+four newest commits (§2a) landed. Do not attribute the whole delta to any one round. Immediately
+before the four newest commits, the suite stood at **51 pass / 50 pass, 4 disabled** (x86/x64); before
+that, at the point this section originally described, it was **33/33 pass, 2 disabled** (see
+*Follow-on* below). The disabled count is now **1**, not 2 or 4 — three of the four `DISABLED_` probes
+this repo's earlier revisions described as "run by hand, never in CI" were converted to self-detecting
+tests in the newest round; see §2a.
+
+| gate, at the original four-commit landing (historical) | result |
+|---|---|
+| `test:x86` | 19/19 pass (1 disabled) |
+| `test:x64` | 18/18 pass (1 disabled) |
 | `fakefreeze.exe`, x86 and x64 | builds via the new `build.sh`; clean rebuild leaves the tree clean |
 | name collisions | none. `PGETASYNCKEYSTATE` and `ReconcileModifierCache` appear nowhere else in the repo, and there was no pre-existing `GetAsyncKeyState` typedef |
 | blast radius of the header change | `keymanengine.h` is included by exactly two files, both PCHs (`keyman32/pch.h`, `keyman32/tests/pch.h`). Only two MSBuild projects are affected and both build. `kmtip.vcxproj` links `keyman32.lib` but includes no keyman32 header; `mcompile.vcxproj` includes only `kbd.h` |
 
 ### Follow-on — the review's five gaps, implemented
 
-Ten further commits on the same branch. Of the six items in
+Ten further commits on the same branch, **as this file originally described it on 2026-08-26**. Of
+the six items in
 [`REVIEW-8064-reconcile-modifier-cache.md`](REVIEW-8064-reconcile-modifier-cache.md):
 items 1, 4 and 5 are **fixed**, item 6 is **refuted** (its premise was wrong), item 3
 is **answered in the negative** and item 2 is **unchanged**. Dispositions are recorded
-inline in that file; the short version:
+inline in that file; the short version, hashes remapped to current (see the note at the top of §2):
 
-| commit | subject |
+| commit (current) | subject |
 |---|---|
-| `d922477da8` | `refactor(windows): define the managed modifier set once` |
-| `1ae2df282c` | `refactor(windows): extract PrepareInjectedInputBatch so the batch path is testable` |
-| `ae1f348b1a` | `test(windows): pin the batch reconcile so removing it fails the suite` |
-| `13c083f216` | `test(windows): characterise the lost-modifier-KEYDOWN mirror defect` (deliberately red) |
-| `00b17ee604` | `fix(windows): release modifiers the OS holds but the cache does not` |
-| `6b07cff02b` | `test(windows): probe what GetKeyboardState returns on a fresh thread` |
-| `14d2dc5c08` | `docs(windows): correct what the modifier-cache seed actually does` |
-| `e09c7bf645` | `docs(windows): enumerate modifier producers and add the triage procedure` |
-| `cb4911ac5b` | `docs(windows): link the drafted producer issues and correct a source path` |
-| `c1a7fa7992` | `fix(windows): release sticky OSK modifiers on every teardown path` — **UNVERIFIED, Delphi unavailable** |
+| `7417907360` | `refactor(windows): define the managed modifier set once` |
+| `6af2853ffc` | `refactor(windows): extract PrepareInjectedInputBatch so the batch path is testable` |
+| `4aff8fc10e` | `fix(windows): clear cached modifiers the OS reports up before injecting` — also absorbs what was a separate red-first pinning commit (`test(windows): pin the batch reconcile so removing it fails the suite`) |
+| `132210bd97` | `fix(windows): release modifiers the OS holds but the cache does not` — **this is one commit now, not two.** The rebase squashed the deliberately-red characterisation test and its fix into a single commit; the `PREPARE_INJECTED_INPUT_BATCH.OsHeldModifierIsReleasedBeforeTheOutputKeys` test and the fix that turns it green both live here |
+| `914795bf58` | `test(windows): characterise the serial key event server modifier cache` — also absorbs a separate fresh-thread `GetKeyboardState` probe (`DISABLED_FreshThreadKeyboardStateReflectsLiveModifiers` lives here now) |
+| `b7971ec715` | `docs(windows): add the GH-8064 manual test, producer enumeration and triage` — also absorbs two separate docs commits that enumerated producers and added the triage procedure |
+| `cd2bd44dd0` | `fix(windows): release sticky OSK modifiers on every teardown path` — **UNVERIFIED, Delphi unavailable** |
 
-| gate | result |
+**One commit's content could not be confidently remapped.** A commit titled `docs(windows): correct
+what the modifier-cache seed actually does` touched comments across `k32_lowlevelkeyboardhook.cpp`,
+`keybd_shift.cpp` and `serialkeyeventserver.cpp` plus a manual-test README. Its content does not
+survive as an isolable commit on the current branch — the same comment territory is now touched by
+several later commits (candidates include `fd6f5ac87c` and `bd70725e94`), and there is no reliable way
+to say which current commit, if any, is "the" successor. Treat its claims as folded into the current
+tree's comments rather than attributable to one commit.
+
+| gate, at this ten-commit follow-on (historical, 2026-08-26) | result |
 |---|---|
-| `test:x86` | **33/33 pass**, 2 disabled (`+14` over the baseline) |
-| `test:x64` | **32/32 pass**, 2 disabled (`+14`) |
-| both DLLs, full `-t:Rebuild` on Win32 and x64 | **0 compiler warnings, 0 errors** |
-| FR-014 mutation gate | deleting the reconcile inside `PrepareInjectedInputBatch` turns **3 tests red**; every pre-existing case stays green |
-| FR-018 mutation gate | a seventh VK makes `MAX_KEYEVENT_INPUTS_MODIFIERS` become 9 **on its own** |
-| G1 | red first (`13c083f216`), then green |
-| G3 — is prevention complete? | **no.** 3 unmitigated producer paths, 2 in the on-screen keyboard |
+| `test:x86` | 33/33 pass, 2 disabled (`+14` over the four-commit baseline) |
+| `test:x64` | 32/32 pass, 2 disabled (`+14`) |
+| both DLLs, full `-t:Rebuild` on Win32 and x64 | 0 compiler warnings, 0 errors |
+| FR-014 mutation gate | deleting the reconcile inside `PrepareInjectedInputBatch` turned 3 tests red; every pre-existing case stayed green |
+| FR-018 mutation gate | a seventh VK made `MAX_KEYEVENT_INPUTS_MODIFIERS` become 9 on its own |
+| G1 | red first, then green |
+| G3 — is prevention complete? | no. 3 unmitigated producer paths, 2 in the on-screen keyboard |
+
+**Superseded by §2a below.** Two more rounds of work landed after this ten-commit follow-on — a
+`host32` reproduction-harness round, then the four-commit residual-gaps round this file now leads
+with — and the gate numbers above are no longer current. See §2's *Results* for the current 72/71
+figures and §2a for what the newest four commits did.
 
 **The one result that changes the story:** the on-screen keyboard can strand a
 modifier machine-wide, including an unclearable extended Right Control, because
@@ -138,7 +177,100 @@ producer and a field recurrence must be triaged rather than attributed. The
 enumeration is in the Keyman tree at
 `windows/src/test/manual-tests/GH-8064 - stuck-modifier-phantom-keydown/MODIFIER-PRODUCERS.md`.
 
-### The fix, as it actually shipped
+**Since superseded in part.** The two OSK findings referenced above were UNMITIGATED at this point
+in the history; §2a below closes one of them (the teardown-path chirality collapse) and leaves the
+other (the live click-off path) open. Do not read the paragraph above as still describing current
+standing on the OSK — see §2a and §6.
+
+### 2a. Four newest commits, 2026-08-27 — closing residual pathways a five-lens audit found
+
+Landed after the `host32` reproduction-harness round (which is not otherwise covered by this repo).
+In order:
+
+| commit | subject |
+|---|---|
+| `e245c41845` | `fix(windows): pass a key event through when the serializer handoff fails` |
+| `5ba72fa3c9` | `fix(windows): release a modifier the OS still holds when the batch ends` |
+| `3d64aad790` | `fix(windows): release sticky OSK modifiers by their injected chiral identity` |
+| `169d2f7c86` | `docs(windows): re-verify the producer enumeration against the residual fixes` |
+
+**`e245c41845` — the hook stopped destroying input on a failed handoff.** The low-level hook used to
+eat the user's key event unconditionally (returning 1, so `CallNextHookEx` was never reached) and
+`PostMessage` it to the serial key event server without checking success. When that post failed —
+`GetWindow()` returning `NULL` during server startup/teardown, a stalled client blocking
+`ProcessQueuedKeyEvents`'s `INFINITE` wait until the 10,000-message queue fills, or `MessageLoop`
+exiting on the exit event with key events still queued — the event was simply destroyed. For a
+modifier KEYUP specifically, that loss is a direct route into #8064: the matching KEYDOWN had already
+been delivered and re-injected, so cache and OS end up **agreeing** the modifier is down — agreement
+being the one state the clear-only reconcile is built to trust, so no later batch can ever detect it.
+Now the hook eats only on a confirmed post to a non-**`NULL`** window, otherwise falls through to
+`CallNextHookEx`; note `PostMessage(NULL, …)` does not fail usefully, it misroutes to the calling
+thread's own queue, so the `NULL` window has to be tested for rather than inferred from a return
+value. The posting-side modifier trace that `348b59803f` deleted is also restored, scoped to modifier
+keys and now recording provenance filtering and post success.
+
+**`5ba72fa3c9` — a post-batch verification pass closes the pass-through race and a related regression.**
+`ReconcileModifierCache` runs before a batch is assembled, so it cannot see a user release landing
+between `CaptureLiveModifierState` and the batch reaching the OS. Two confirmed sequences end that
+way: the **pass-through race** — mstsc stamps `dwExtraInfo=0x4321DCBA`, and the same applies to the
+touch panel being visible, console focus, and `GetGUIThreadInfo` failure — under which the user's
+modifiers feed the cache but reach the OS un-eaten, so their ordering against a batch's own
+`SendInput` is not Keyman's to control; and the C-9 residual this file previously recorded as
+"accepted and documented" below. Both leave the batch's own restore press outliving a real release
+that the cache correctly learned about (because it was the user's own event, not Keyman's), with the
+OS left holding a modifier nobody holds. The fix: `PrepareInjectedInputBatch` reports which managed
+modifiers its restore half pressed as a bitmask, and the server posts itself
+`WM_KEYMAN_VERIFY_MODIFIER_EVENT` when that mask is non-empty. Posted messages are FIFO, so by the
+time it is dispatched every modifier event the hook posted before it — including a racing release —
+has already been applied to the cache; the handler then injects a corrective KEYUP for anything the
+OS still holds that the cache now says is up. **This is a curative move for the batch-produced case
+specifically — see the REVIEW file's item 2 for why it is not the general tray-action cure that item
+was asking for.** Separately fixed in the same commit: with `flag_ShouldSerializeInput` off, the G1
+union release was releasing live-held modifiers the restore half had no record of — a lost-modifier
+regression introduced by G1 itself, now made conditional on the cache actually being fed. Also in
+this commit: three of the four `DISABLED_` probes underpinning this design (the fresh-thread
+`GetKeyboardState` seed, `SendInput`/`GetAsyncKeyState` visibility ordering, and `dwExtraInfo`
+surviving `SendInput` to the hook) now self-detect whether the desktop can exercise the mechanism and
+assert for real where it can, rather than running only by hand — gtest 1.8.1.7 has no `GTEST_SKIP`,
+so this uses the log-and-pass substitute already established in the test file. **A new measurement
+closes an open question rather than merely arguing it:** injecting a third party's generic
+`SendInput(wVk=VK_SHIFT, wScan=0)` and reading `GetAsyncKeyState VK_SHIFT=0x8000 VK_LSHIFT=0x8001
+VK_RSHIFT=0x0000` while the hook observes `vk=0xA0 scan=0x00 flags=0x10` shows Windows re-chiralises a
+scan-0 generic injection **before** the low-level hook — so the cache byte and the live reading land
+in the same slot, and the reconcile cannot erase a generic-VK press. An audit had raised that erasure
+as a probable defect; it is now closed by measurement.
+
+**`3d64aad790` — OSK teardown now releases by injected chiral identity. UNTESTED, Delphi
+unavailable.** `ResetShiftStates` now releases from `FCachedShiftState` directly, one call per chiral
+VK with its own extended flag, gated on a live `GetAsyncKeyState` check — bypassing `kbd.ShiftState`
+and `kbd.LRShift`, whose `SetLRShift` collapse (`essLCtrl`/`essRCtrl` → `essCtrl`,
+`essLAlt`/`essRAlt` → `essAlt`) was the reason teardown could release the wrong key or fail to release
+at all. This fixes the `SetLRShift` chirality collapse **for the teardown path only.** Also fixed:
+`kbdKeyPressed`'s stale-async re-press, and the `LRShift` regime is now frozen into `LLRShift` so a
+mid-keystroke keyboard switch cannot leave a suppression unrestored. **Still open: the live click-off
+path.** A fix was written and reverted this session, because the same `ShiftStateChange` function is
+also reached from `UpdateShiftStates`' 50 ms resync, whose press branch fires for physically-held
+modifiers — recording those into `FCachedShiftState` would let teardown release a key the user still
+has down, reintroducing the I2177 regression. Tracked in the Keyman tree's `MODIFIER-PRODUCERS.md` as
+Finding 4b.
+
+**`169d2f7c86` — `MODIFIER-PRODUCERS.md` and `TRIAGE.md` re-verified**, not merely re-read: new rows
+for the pass-through race and the eaten-event pipeline loss (both now mitigated, with the row noting
+the underlying reasons a handoff can fail — the `INFINITE` mutex wait, `MessageLoop` exiting with
+events pending — are untouched; the hook merely degrades safely now), and a new row for
+process-termination-while-an-OSK-modifier-is-held (**UNMITIGATED** — no watchdog, no
+restore-on-start, and a blind release-all at startup was rejected as unsafe, since it would strip a
+modifier the user is genuinely holding at launch). Verdicts deliberately **not** upgraded: the two OSK
+findings keep UNMITIGATED even though fixes are now in the tree, because Delphi is not installed here
+and nothing compiled or ran. Rows 1 and 9 of the producer enumeration are marked mitigated but flagged
+**source-reasoned, not re-run** — the live `host32` harness that measured the original 5/5-to-0/5
+freeze reproduction has not been run against these changes. FR-011 remains unsatisfied; the banner
+still says four rows unmitigated.
+
+**Gates for this round:** `test:x86` 72 pass (1 disabled), `test:x64` 71 pass (1 disabled), both
+DLLs link clean with 0 warnings. ARM64 still not built; Delphi still not installed.
+
+### The fix, as it originally shipped (historical — see §2a for the residual fixes layered on top)
 
 ```cpp
 // keymanengine.h, immediately after the keybd_shift declaration and ABOVE the #ifndef _WIN64
@@ -271,17 +403,38 @@ callers not to rely on it. The fix adds six reads per output batch. `kmhook_call
 already calls `GetAsyncKeyState`, so this is not a new dependency — but it belongs in the PR
 description rather than being discovered by a reviewer.
 
-### C-9 — one residual regression risk, accepted and documented
+**Updated 2026-08-27.** The read count is now larger than "six per batch": `5ba72fa3c9`'s post-batch
+verification pass calls `GetAsyncKeyState` again, once per managed modifier the batch's restore half
+pressed, when the corrective `WM_KEYMAN_VERIFY_MODIFIER_EVENT` fires. The shared-low-bit caveat above
+applies identically to those reads; nothing about the mechanism changes, there are simply more call
+sites now, and the PR description should say so.
 
-If the previous batch's re-press KEYDOWN has not yet been reflected in `GetAsyncKeyState` when the
-next batch begins, reconcile can clear a **genuinely held** modifier. Consequence: one output batch
-emitted unshifted while the user holds the key; the cache re-arms on that modifier's next physical
-KEYDOWN. Self-healing, and strictly smaller than a machine-wide latch on a key the keyboard may not
-have.
+### C-9 — one residual regression risk, now substantially closed
 
-The window is many milliseconds and several thread transitions wide (app → LL hook → `PostMessage`
-→ client → `WM_USER` → server thread). No debounce was added. The trade is stated in the code
-comment rather than left for a reviewer to find.
+**This section previously read "accepted and documented," describing the risk as a deliberate,
+undebounced trade-off. `5ba72fa3c9` closes the specific race this section described — not by
+debouncing, but by verification.** The original text is kept below for the record, followed by the
+current standing.
+
+Original text: if the previous batch's re-press KEYDOWN has not yet been reflected in
+`GetAsyncKeyState` when the next batch begins, reconcile can clear a **genuinely held** modifier.
+Consequence: one output batch emitted unshifted while the user holds the key; the cache re-arms on
+that modifier's next physical KEYDOWN. Self-healing, and strictly smaller than a machine-wide latch
+on a key the keyboard may not have. The window is many milliseconds and several thread transitions
+wide (app → LL hook → `PostMessage` → client → `WM_USER` → server thread). No debounce was added at
+the time this was written.
+
+**Current standing.** `5ba72fa3c9` adds a post-batch self-post, `WM_KEYMAN_VERIFY_MODIFIER_EVENT`,
+carrying a bitmask of what the restore half pressed. Because posted messages are FIFO, by the time
+that message is dispatched every modifier event the hook posted ahead of it — including a racing
+physical release — has already reached the cache, so the handler can inject a corrective KEYUP for
+anything the OS still holds that the cache now says is up. This closes the batch-produced instance of
+C-9 as a **measured** fix (unit-tested, not merely reasoned about), not by debouncing the window but
+by re-checking after it closes. What remains true: this is still a batch-scoped correction, not a
+continuous invariant — a race landing after the verification message is itself dispatched (a second
+physical event arriving in the few milliseconds the correction takes to queue and apply) is still
+possible in principle and is not separately tested. Do not describe C-9 as eliminated as a general
+class of race; describe it as closed for the specific sequence this section originally identified.
 
 ### C-10 — the cache is fed by Keyman's *own* synthetic modifier events
 
@@ -387,35 +540,52 @@ as prose.
 
 ## 6. Still open
 
-Unchanged by this work, and not to be implied otherwise.
+Re-verified 2026-08-27 against the four newest commits. Items below are marked **unchanged** where
+this session's work did not touch them, and rewritten where it did.
 
-- **The ARM64 leg is unbuilt.** No ARM64 MSVC libraries on this machine. `keybd_shift.cpp` has no
-  architecture guard and the new declaration sits outside the `_WIN64` region, so it should compile;
-  **unverified**. CI or a machine with the ARM64 toolset must confirm.
-- **The on-screen keyboard can strand a modifier, and is not fixed.** Three producer paths came back
-  `UNMITIGATED` from the G3 audit, two of them in `engine/keyman/viskbd`. Issues are drafted but not
-  filed, so **FR-011 is unsatisfied and prevention must not be described as complete**. A fix for two
-  of the three is landed **untested** (`c1a7fa7992`) because Delphi is not installed here; the
-  `SetLRShift` chirality collapse is not addressed at all. Needs a machine with Delphi.
-- **The OSK findings are source-derived, not observed.** A scripted attempt to click OSK keys could
-  not establish a positive control that the clicks landed, so its null result is not evidence either
-  way. Each finding carries its minimal reproduction.
-- **`keyboard_ll_identifier` cannot be built here.** It is Delphi with no committed binary, and it is
-  the wire logger that supplies the second half of the manual test's FAIL oracle.
-- **What stalls keyman.exe's main thread in the field** — [`TODO.md`](TODO.md) **I3**. The fix makes
-  the consequence harmless. It does not explain the cause. Ross's focus-change observation is still
-  the best lead.
-- **Whether Cache A exists in the 64-bit engine** — [`TODO.md`](TODO.md) **I5**. Still an
-  unverified inference. The new call site is inside `#ifndef _WIN64` by construction; the function
-  itself is architecture-neutral and is unit-tested on both.
-- **`NormalizeModifierVk`** (`TEST-PLAN.md` **S2**) and its tests `T-S5`-`T-S7` — not done. A pure
-  testability refactor the fix does not need. Worth doing separately.
-- **`P1`**, restoring `RightAltEmulationCheck.tests.cpp` to the vcxproj — probed green, deliberately
-  not landed here.
+- **The ARM64 leg is unbuilt — unchanged.** No ARM64 MSVC libraries on this machine. Nothing in the
+  four newest commits adds an architecture guard, so the same "should compile, unverified" standing
+  applies to their code as to the original fix. CI or a machine with the ARM64 toolset must confirm.
+- **The on-screen keyboard can strand a modifier — partly fixed, one path still open.** The teardown
+  path (`ResetShiftStates`, reached from every dismissal route since `cd2bd44dd0`) now releases by
+  injected chiral identity rather than through the `kbd.LRShift`-collapsed `ShiftStateChange`
+  (`3d64aad790`) — but this is **UNTESTED**, Delphi is not installed here, so nothing compiled or ran.
+  **The live click-off path is deliberately not fixed.** A fix was written and reverted in this
+  session because the function it would change, `ShiftStateChange`, is also reached from the 50 ms
+  resync that presses physically-held modifiers, and recording those would reintroduce the I2177
+  regression. Tracked as Finding 4b in the Keyman tree's `MODIFIER-PRODUCERS.md`. Because Delphi is
+  uncompiled, **neither** OSK verdict is upgraded from `UNMITIGATED` in the producer enumeration —
+  see §2a — regardless of what the source now says.
+- **The pass-through race and the eaten-event pipeline loss — fixed and unit-tested.** `e245c41845`
+  and `5ba72fa3c9` (§2a). These were open items as of the previous revision of this file; they are
+  not any more, and this is a C++ fix, so it clears the compiled-and-tested bar this repo requires.
+- **The OSK findings are source-derived, not observed.** Unchanged. A scripted attempt to click OSK
+  keys could not establish a positive control that the clicks landed, so its null result is not
+  evidence either way. Each finding carries its minimal reproduction.
+- **`keyboard_ll_identifier` cannot be built here.** Unchanged. It is Delphi with no committed binary,
+  and it is the wire logger that supplies the second half of the manual test's FAIL oracle.
+- **What stalls keyman.exe's main thread in the field** — [`TODO.md`](TODO.md) **I3** — **still open,
+  untouched by the four newest commits.** The fix makes the consequence harmless; it does not explain
+  the cause. Ross's focus-change observation is still the best lead.
+- **Whether Cache A exists in the 64-bit engine** — [`TODO.md`](TODO.md) **I5** — **still an
+  unverified inference, untouched.** The call site is still inside `#ifndef _WIN64` by construction;
+  the function itself is architecture-neutral and is unit-tested on both.
+- **`NormalizeModifierVk`** (`TEST-PLAN.md` **S2**) and its tests `T-S5`-`T-S7` — still not done. A
+  pure testability refactor the fix does not need. Worth doing separately.
+- **`P1`**, restoring `RightAltEmulationCheck.tests.cpp` to the vcxproj — still probed green,
+  deliberately not landed here.
 - **`P3`**, the Cache B / Caps Lock tests — untouched, and out of scope for this branch: that
   defect is already PR [#16423][p16423]. See [`capslock/`](capslock/README.md).
-- **The branch is not pushed and no PR is open.** #8064 has not been commented on.
-  [`MEETING-PREP.md`](MEETING-PREP.md) is still the brief, and the issue is still Ross's.
+- **The `host32` live re-run of producer rows 1 and 9 is still owed.** Both are marked mitigated in
+  the current `MODIFIER-PRODUCERS.md` but flagged source-reasoned rather than re-run: the live
+  `host32` harness that measured the original 5/5-to-0/5 freeze reproduction has not been run against
+  the current tree. New with §2a; do not read "mitigated" in that file as re-measured.
+- **The branch push status was re-checked, not assumed, 2026-08-27.** Still not usably pushed: the
+  local branch's upstream tracking ref (`MattGyverLee/fix/windows/8064-reconcile-modifier-cache`)
+  reports **gone** — consistent with a prior push having been superseded by a later rebase that was
+  never force-pushed — and no branch of this name is visible on the fork remote. #8064 has not been
+  commented on. [`MEETING-PREP.md`](MEETING-PREP.md) is still the brief, and the issue is still
+  Ross's.
 
 [i16422]: https://github.com/keymanapp/keyman/issues/16422
 [p16423]: https://github.com/keymanapp/keyman/pull/16423

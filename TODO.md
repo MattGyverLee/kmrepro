@@ -309,7 +309,8 @@ so they come first.
   (`UfrmKeyman7Main.pas:868`) is an ungated `Sleep(5000)` — no debug flag, no
   special build. ~~**It has no `build.sh`**, so `./windows/build.sh` never produces
   it (`TEST-PLAN.md` P0).~~ **That blocker is gone as of 2026-08-26:** commit
-  `5274fec612` adds `support/fakefreeze/build.sh` and registers `:fakefreeze` in
+  `bbb22576c2` (cited elsewhere in this repo as `5274fec612`, a hash rebased away
+  from `HEAD` — see [`IN-TREE.md`](IN-TREE.md) §2) adds `support/fakefreeze/build.sh` and registers `:fakefreeze` in
   `support/build.sh`, so `./windows/build.sh` reaches it; built and verified x86
   and x64 ([`IN-TREE.md`](IN-TREE.md) §5). The investigation itself — does it
   reproduce on a clean VM — is **still open**. A null result here means something
@@ -425,14 +426,19 @@ evidence, in [`IN-TREE.md`](IN-TREE.md).
 
 - [x] **D1 — Re-validate Cache A from the OS at batch start. DONE — implemented,
   compiled, tested and committed 2026-08-26.**
-  Commit `a26aa611b5` (`fix(windows): reconcile cached modifier state with the OS
-  before injecting`) on branch `fix/windows/8064-reconcile-modifier-cache`, over
+  Commit `4aff8fc10e` (`fix(windows): clear cached modifiers the OS reports up
+  before injecting` — reworded and its content extended by a later rebase; cited
+  elsewhere in this repo as `a26aa611b5`, a hash no longer reachable from `HEAD`,
+  see [`IN-TREE.md`](IN-TREE.md) §2) on branch
+  `fix/windows/8064-reconcile-modifier-cache`, over
   `keymanengine.h`, `keybd_shift.cpp` and `serialkeyeventserver.cpp` plus tests.
   **64 lines of production change across 3 files, roughly 40 of them comment**: one
   typedef, one declaration, a ten-line loop, and one call. Full account, including
   the build environment it was proven in, in [`IN-TREE.md`](IN-TREE.md).
-  **Gates, all green:** `test:x86` **19/19**, `test:x64` **18/18** (1 disabled
-  each; the x86-only `isModifierKey` case correctly compiles out of the x64 run);
+  **Gates at landing, historical:** `test:x86` 19/19, `test:x64` 18/18 (1 disabled
+  each; the x86-only `isModifierKey` case correctly compiles out of the x64 run).
+  **Current, 2026-08-27, after two further rounds of work:** `test:x86` **72
+  pass**, `test:x64` **71 pass**, 1 disabled each — see `IN-TREE.md` §2.
   `keyman32.dll` Win32 Debug and `keyman64.dll` x64 Debug both **link clean, 0
   warnings** — which matters, because `keyman32.vcxproj` compiles with warnings as
   errors. No name collisions and no blast radius: `keymanengine.h` is included by
@@ -460,13 +466,16 @@ evidence, in [`IN-TREE.md`](IN-TREE.md).
     and a `GetAsyncKeyState`-based reconcile can no longer detect anything. Batch
     start is therefore not merely a good placement — it is the **last point at
     which prevention is possible**. It cannot recover an already-latched process.
-  - **One residual regression risk, accepted and documented in the code comment**
-    (C-9). If the previous batch's re-press KEYDOWN has not yet been reflected in
-    `GetAsyncKeyState`, reconcile can clear a genuinely held modifier: one output
-    batch emitted unshifted, re-arming on that modifier's next physical KEYDOWN.
-    Self-healing, and strictly smaller than a machine-wide latch on a key the
-    keyboard may not have. The window is many milliseconds and several thread
-    transitions wide; no debounce was added.
+  - **One residual regression risk (C-9), substantially closed 2026-08-27.** As
+    originally landed: if the previous batch's re-press KEYDOWN had not yet been
+    reflected in `GetAsyncKeyState`, reconcile could clear a genuinely held
+    modifier: one output batch emitted unshifted, re-arming on that modifier's next
+    physical KEYDOWN. Self-healing, and strictly smaller than a machine-wide latch
+    on a key the keyboard may not have; the window was many milliseconds and
+    several thread transitions wide, and no debounce was added at the time.
+    **Commit `5ba72fa3c9` closes the batch-produced instance of this** with a
+    post-batch verification pass rather than a debounce — see `IN-TREE.md` §2a and
+    §3 C-9. Still batch-scoped, not a continuous invariant.
   Also for the PR description rather than for a reviewer to discover (C-8):
   `GetAsyncKeyState`'s low "pressed since last query" bit is shared across
   processes, and the fix adds six reads per output batch.
@@ -722,13 +731,19 @@ it changed.
 
 ## 6. Suggested order
 
-Reordered 2026-08-26. The code is written; what is left is getting it in front of
-people and closing the one architecture nobody has compiled.
+Reordered 2026-08-26; branch state re-checked 2026-08-27. The code is written; what is left is
+getting it in front of people and closing the one architecture nobody has compiled.
 
-1. **Push the branch.** `fix/windows/8064-reconcile-modifier-cache` exists only
-   locally — four commits, nothing pushed, no PR open
-   ([`IN-TREE.md`](IN-TREE.md) §6). Nothing below can be reviewed until it is.
-   The first commit, `204e63493b`, is landable on its own: it characterises the
+1. **Push the branch.** `fix/windows/8064-reconcile-modifier-cache` is **still not
+   usably pushed**, re-verified 2026-08-27: the local branch's upstream tracking ref
+   reports **gone**, and no branch of this name is visible on the fork remote —
+   consistent with an earlier push having been superseded by a later rebase that was
+   never force-pushed. The branch is no longer four commits; it is 27, after a
+   ten-commit follow-on, a `host32` reproduction-harness round, and four more
+   commits closing residual pathways ([`IN-TREE.md`](IN-TREE.md) §2, §2a, §6).
+   Nothing below can be reviewed until it is pushed.
+   The first commit, `914795bf58` (cited elsewhere in this repo by its pre-rebase
+   hash `204e63493b`), is landable on its own: it characterises the
    defect without proposing a fix, so it keeps its value even if **D1** is reworked
    in review.
 2. **Open the PR**, leading with §2a-wire of `MODIFIERS.md` — the unmatched KEYDOWN
@@ -766,7 +781,7 @@ people and closing the one architecture nobody has compiled.
     otherwise be misfiled as this one — I11 costs nothing at all, since every
     `kmmods.ps1` run already collects the evidence. **H6 is closed** — I4 does
     *not* need re-running on its account. **I13**'s build blocker is gone
-    (`5274fec612`), so that one is now just a matter of finding a clean VM.
+    (`bbb22576c2`), so that one is now just a matter of finding a clean VM.
 11. **D2 / D6 / D7** are what is left of the D series. **D1** and **D4** are done,
     **D3** is refuted, **D5** was always a decision rather than a task. ~~**D1**
     should land as a shared helper with #16423's resync, not as a second independent

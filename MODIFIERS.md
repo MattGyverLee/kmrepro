@@ -910,8 +910,12 @@ Per direction on 2026-08-23, **superseded for Cache A on 2026-08-26**:
 
 - ~~**Stuck-modifier (Cache A) work — not being fixed in Keyman code yet.** Stays
   here as repro + analysis.~~ **The fix was written, tested and committed on
-  2026-08-26** — `a26aa611b5` on `fix/windows/8064-reconcile-modifier-cache`,
-  `test:x86` 19/19 and `test:x64` 18/18 (33/33 and 32/32 after the follow-on),
+  2026-08-26** — `4aff8fc10e` on `fix/windows/8064-reconcile-modifier-cache` (cited
+  elsewhere in this repo as `a26aa611b5`, a hash the branch's later rebase left
+  unreachable from `HEAD`; see [`IN-TREE.md`](IN-TREE.md) §2),
+  `test:x86` 19/19 and `test:x64` 18/18 at that point (33/33 and 32/32 after the
+  ten-commit follow-on; **72 pass and 71 pass, 1 disabled each, after the branch's
+  subsequent growth — current as of 2026-08-27**),
   both engine DLLs linking clean; see
   [`IN-TREE.md`](IN-TREE.md) and `TODO.md` **D1**. This document keeps its job:
   repro + analysis, and the source of the argument. §3 is still the part to lead

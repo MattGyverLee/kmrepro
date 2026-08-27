@@ -11,14 +11,24 @@ on-screen keyboard's modifier injection.
 **Not done:** nothing was built or run. The toolchain needed is the full
 Visual Studio + Delphi Keyman build. Everything below is static analysis.
 
-**Branch contents:**
+**Branch contents, as originally reviewed:**
 
-| commit | subject |
+| commit (original hash — see note) | subject |
 |---|---|
 | `204e63493b` | test(windows): characterise phantom modifier re-press in serial key event server |
 | `a26aa611b5` | fix(windows): reconcile cached modifier state with the OS before injecting |
 | `5274fec612` | chore(windows): add a build entry point for the fakefreeze support tool |
 | `78a0c22edc` | test(windows): add manual test for the stuck modifier phantom KEYDOWN |
+
+> **Hash note, added 2026-08-27.** The branch was rebased after this review was written. None of the
+> four hashes above are reachable from the current `HEAD`; the pre-rebase branch is preserved locally
+> as `backup/8064-preswap-4be29681b6`. Matched by content (test names and files touched, not just
+> subject text), their current equivalents are `914795bf58`, `4aff8fc10e`, `bbb22576c2` and
+> `b7971ec715` respectively — see [`IN-TREE.md`](IN-TREE.md) §2 for the full remap and what each
+> commit absorbed during the rebase. The branch has also grown substantially since this review: a
+> ten-commit follow-on (dispositions recorded inline below), a `host32` reproduction-harness round,
+> and four more commits closing residual pathways — see `IN-TREE.md` §2a. Current gates are
+> `test:x86` 72 pass / 1 disabled, `test:x64` 71 pass / 1 disabled.
 
 ---
 
@@ -47,18 +57,22 @@ complete**, which was the question the whole review existed to answer.
 
 | item | disposition |
 |---|---|
-| 1 — the mirror defect | **fixed**, red test first (`13c083f216`), then fix (`00b17ee604`) |
-| 2 — no cure available | **unchanged and confirmed.** The "release all modifiers" tray action remains the only curative move, and is still not built |
-| 3 — the OSK is a second producer | **UNMITIGATED, and the review's judgement is reversed** |
+| 1 — the mirror defect | **fixed**, red test first, then fix — squashed into one commit by the branch rebase, `132210bd97` (originally two: `13c083f216` then `00b17ee604`; see the hash note above) |
+| 2 — no cure available | **the general tray-action cure is still not built — but see the 2026-08-27 addition below: a narrower, batch-scoped curative move has since landed** |
+| 3 — the OSK is a second producer | **partly fixed, 2026-08-27 — see the addition below.** Originally UNMITIGATED with the review's judgement reversed |
 | 4 — the fix itself is not under test | **fixed.** Batch path extracted and pinned; deleting the reconcile now turns 3 tests red |
 | 5 — the modifier table is triplicated | **fixed.** One definition, reserve derived from its length |
 | 6 — documentation overstates the seed | **refuted.** It understated it. Documentation corrected in the opposite direction |
 | smaller: the two `#8064` TODOs | **removed** |
 | smaller: `SendInput` partial return | **commented, not changed** — deliberately, per the no-behaviour-change gate |
 
-Suite: **19/19 x86 and 18/18 x64 before, 33/33 and 32/32 after**, 2 disabled each.
-Both DLLs rebuild warning-clean. Full evidence in the PR body for the follow-on
-branch; the producer enumeration is in the Keyman tree at
+Suite: **19/19 x86 and 18/18 x64 before, 33/33 and 32/32 after** this ten-commit
+follow-on, 2 disabled each. **Stale as of 2026-08-27** — the branch has since grown
+by a `host32` reproduction-harness round and the four residual-gap commits described
+above; current gates are **72 pass / 1 disabled (x86), 71 pass / 1 disabled (x64)**,
+see [`IN-TREE.md`](IN-TREE.md) §2 and §2a. Both DLLs rebuild warning-clean throughout.
+Full evidence in the PR body for the follow-on branch (not yet opened — see
+`IN-TREE.md` §6); the producer enumeration is in the Keyman tree at
 `windows/src/test/manual-tests/GH-8064 - stuck-modifier-phantom-keydown/MODIFIER-PRODUCERS.md`.
 
 ---
@@ -149,7 +163,10 @@ recoverable; a deleted word is not. Worth a decision, not necessarily this PR.
 > static claim about a defect whose original repro was contrived. The
 > characterisation test fails against the pre-fix tree with `release == -1` - no
 > KEYUP emitted at all for a modifier the OS reports held - and landed as its own
-> earlier commit (`13c083f216`) before the fix (`00b17ee604`).
+> earlier commit before the fix. **Hash note, 2026-08-27:** those were originally two
+> commits, `13c083f216` (the red test) then `00b17ee604` (the fix); a later rebase
+> of the branch squashed them into one, `132210bd97`, which is what `HEAD` now
+> contains. Neither original hash is reachable from `HEAD` any more.
 >
 > One correction to the reasoning above: the union is computed *explicitly* even
 > though, after the reconcile has run, cache-held is already a subset of OS-held so
@@ -199,6 +216,23 @@ curative move on the table.
 > `keybd_shift` can emit - Left Shift, extended Right Ctrl, and Right Shift by scan
 > code - and the `0xA0`-`0xA5` KEYUP sweep clears all three. So the "release all
 > modifiers" action is known to work before anyone builds it.
+>
+> **Addition, 2026-08-27 — a narrower cure has since landed, and the distinction from
+> the tray action matters.** `5ba72fa3c9` adds a post-batch verification pass:
+> `PrepareInjectedInputBatch` reports which modifiers its restore half pressed, the
+> server posts itself `WM_KEYMAN_VERIFY_MODIFIER_EVENT`, and — because posted
+> messages are FIFO and land behind any racing user release — the handler injects a
+> corrective KEYUP for anything the OS still holds that the cache now says is up.
+> **This is genuinely curative, not merely preventive, for the specific case it
+> covers**: a modifier the batch itself just wedged, within that same batch's
+> lifetime. It is not the cure this item was asking for. The tray action's whole
+> point was recovering an **already-latched process** — a wedge that formed at some
+> unknown point in the past, possibly minutes or hours ago, with no batch in flight
+> to trigger a verification post. The post-batch pass never fires for that case: it
+> only runs when a batch's own restore half pressed something, so a wedge from a
+> dropped KEYUP with no subsequent Keyman-triggered batch is exactly as
+> unrecoverable as before. Do not describe this as closing item 2 — it closes a
+> different, narrower problem that happens to overlap in mechanism.
 
 ### 3. There is a second, entirely separate producer of stuck modifiers
 
@@ -254,6 +288,24 @@ in the PR body — it protects the fix from being wrongly blamed.
 > Fixes for the two OSK findings are drafted and landed **untested**; Delphi was not
 > available. The `SetLRShift` chirality collapse, which strands Right Control even on
 > hardware that has the key, is not fixed at all.
+>
+> **Addition, 2026-08-27.** `3d64aad790` fixes the `SetLRShift` chirality collapse — but
+> **only for the teardown path**. `ResetShiftStates` now releases each held modifier by
+> its recorded injected chiral identity (`FCachedShiftState`, one call per chiral VK,
+> gated on a live `GetAsyncKeyState` check) instead of routing through
+> `ShiftStateChange`, which is what collapsed the identity in the first place. Still
+> **UNTESTED** — Delphi is not installed here, so this has not compiled or run, and the
+> producer enumeration's verdict is correctly left at UNMITIGATED for that reason, not
+> upgraded on the strength of source reasoning. **The live click-off path is
+> deliberately still open.** The obvious fix — making `ShiftStateChange` itself
+> maintain an injection-accurate `FCachedShiftState` — was written and reverted this
+> session, because that same function is also reached from `UpdateShiftStates`' 50 ms
+> resync, whose press branch fires for modifiers the user is physically holding;
+> recording those would let teardown release a key the user still has down, which is
+> the exact I2177 regression this file's "not obviously broken" original judgement was
+> already wrong about once. So: this item moves from wholly unmitigated to **partly
+> fixed, unverified, with the live click-off path knowingly left open** — not to
+> mitigated, and not to closed.
 
 ### 4. The one line that is the entire fix is the one thing not under test
 
@@ -389,6 +441,15 @@ make it a `ReconcileModifierCache`-style seed and the sentence becomes true.
   > `klog.pas:26` reads `{DEFINE KLOGGING}` with the `$` missing and `KLOGGING` appears
   > nowhere else in the tree -- so `SendDebugMessageFormat` is the only live log stream
   > and should not be thinned without checking what depends on it.
+  >
+  > **Addendum, 2026-08-27.** The removal held until `e245c41845`, which restores a trace
+  > at the same site for a different reason: `specs/003-8064-debug-log-adequacy` identifies
+  > the posting-side modifier trace as one of the few signals that actually helps diagnose
+  > a stuck modifier, unaware this branch had deleted it. The restored trace is not the old
+  > per-keystroke message — it is scoped to modifier keys and records provenance filtering
+  > and post success, which the old one did not. The disposition above (TODOs and their
+  > messages are gone) is still accurate; a new, narrower trace now occupies similar
+  > territory for an unrelated reason.
 - `ProcessQueuedKeyEvents` checks `SendInput(...) == 0` but ignores a partial
   return. Not a latch source (the reset KEYDOWNs are last, so truncation drops
   them, which is the safe direction), but `!= m_nInputs` is the honest check.

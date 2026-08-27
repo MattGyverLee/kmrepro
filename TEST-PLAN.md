@@ -1,19 +1,29 @@
 # Test plan — porting these findings into Keyman
 
-**Partly executed, as of 2026-08-26.** [`IN-TREE.md`](IN-TREE.md) is the record of
+**Partly executed, as of 2026-08-26; branch has grown substantially since — see the
+2026-08-27 note below.** [`IN-TREE.md`](IN-TREE.md) is the record of
 what was compiled, run and committed, and it is the authority where the two
-disagree. Landed on `fix/windows/8064-reconcile-modifier-cache` (four commits, 671
+disagree. Landed on `fix/windows/8064-reconcile-modifier-cache` (originally four commits, 671
 insertions across 9 files): **P0** — `fakefreeze/build.sh`, registered in
 `support/build.sh`; **P2** — `tests/keybd_shift.tests.cpp`; **S3** —
 `ReconcileModifierCache`, which *is* the Cache A fix D1, 64 lines across 3 files of
 which roughly 40 are comment; and the **manual test**, as a README-driven procedure
-over existing tools rather than the new Delphi app §4 proposed. Measured: **19/19
+over existing tools rather than the new Delphi app §4 proposed. Measured at that point: **19/19
 pass on `test:x86`, 18/18 on `test:x64`** (one `DISABLED_` by design), and both
 `keyman32.dll` and `keyman64.dll` link with 0 warnings. **P1** was probed — it
 compiles and passes — and deliberately not landed. So the blocks below are no
 longer uniformly drafts; each now carries its own standing, and the drafted `T-P6`
 and `T-S4` have been **corrected** for a leak-detector finding that only compiling
 them could surface.
+
+> **2026-08-27.** The branch has grown by a `host32` reproduction-harness round and four
+> commits closing residual pathways a five-lens audit found (the pass-through race, the
+> eaten-event pipeline loss, the OSK teardown chirality collapse). Current gates:
+> `test:x86` **72 pass**, `test:x64` **71 pass**, 1 disabled each (down from 2, then 4 —
+> three of the four `DISABLED_` probes this repo used to describe as "run by hand, never in
+> CI" are now self-detecting). Every hash cited below the *Conventions* section as "the four
+> commit subjects" is a pre-rebase alias no longer reachable from `HEAD` — see
+> [`IN-TREE.md`](IN-TREE.md) §2 for the remap. Full account: `IN-TREE.md` §2 and §2a.
 
 > **[WARN] What genuinely remains undrafted or unexecuted:** **S1** and **S2** —
 > both seams untouched, and `S2`'s tests `T-S5`-`T-S7` with them; **P3** — the
@@ -1527,7 +1537,7 @@ Idiom follows [TODO.md]. Series chosen to avoid collision with existing I/H/F/D/
 
 **Gates** —
 
-- `[x]` **T11** `keyman32/build.sh --debug test:x64` and `test:x86` green except deliberate reds. **GREEN on both, MEASURED 2026-08-26**: 19/19 x86, 18/18 x64, one `DISABLED_`. Drop `configure` from the command — see §1 blocker 2. **[WARN] The ARM64 leg is unbuilt**, for want of ARM64 MSVC libraries on this machine; `keybd_shift.cpp` has no architecture guard and the new declaration sits outside the `_WIN64` region, so it *should* compile, but that is inference and CI or an ARM64 toolset must confirm it.
+- `[x]` **T11** `keyman32/build.sh --debug test:x64` and `test:x86` green except deliberate reds. **GREEN on both, MEASURED 2026-08-26 at 19/19 x86, 18/18 x64, one `DISABLED_`; RE-MEASURED 2026-08-27 at 72 pass x86, 71 pass x64, one `DISABLED_`** after the `host32` harness round and four residual-gap commits. Drop `configure` from the command — see §1 blocker 2. **[WARN] The ARM64 leg is unbuilt**, for want of ARM64 MSVC libraries on this machine; `keybd_shift.cpp` has no architecture guard and the new declaration sits outside the `_WIN64` region, so it *should* compile, but that is inference and CI or an ARM64 toolset must confirm it.
 - `[ ]` **T12** `/windows/build.sh test` still cascades. **Not fully verifiable on this machine**: the support cascade fails at **`oskbulkrenderer`**, a Delphi project, because Delphi is not installed — and it fails before `fakefreeze` is reached. Environmental, not a defect in this work. `./windows/src/support/build.sh --debug test:fakefreeze` on its own is exit 0, and `:support` is a child of `windows/src/build.sh:26`, so the wiring is right. Needs CI or a Delphi machine.
 - `[ ]` **T13** manual app reproduces per §1 and agrees event-for-event with [`logs/`](logs/). **Not yet run.** The README-driven procedure is committed; nobody has executed it end to end against a wedged Keyman and cross-checked the captures.
 
@@ -1537,16 +1547,21 @@ Idiom follows [TODO.md]. Series chosen to avoid collision with existing I/H/F/D/
 
 Branch `<type>/<scope>/<issue>-<slug>` ([`prepare-commit-msg:56`][pcm]) — a matching name auto-fills the commit prefix and `Fixes:` trailer. Commits `test(windows): …` / `chore(windows): add …`, imperative, no trailing period, trailers after a blank line; types and scopes hook-enforced from [`resources/scopes/`][scopes]. C++ per [`.clang-format`][cf] — 2-space, `ColumnLimit: 130`, attached braces, `PointerAlignment: Left`. A test-only PR normally needs no user test ([CONTRIBUTING][contrib]); the manual test's README serves as one.
 
-**As applied.** Branch `fix/windows/8064-reconcile-modifier-cache`, on `origin/master` @ `deeff0456f` — upstream `keymanapp/keyman`, not the fork's `master`. The four commit subjects, in order:
+**As applied, originally.** Branch `fix/windows/8064-reconcile-modifier-cache`, on `origin/master` @ `deeff0456f` — upstream `keymanapp/keyman`, not the fork's `master`. The four original commit subjects, in order, with their **current** hashes — the branch was rebased after this table was written, and none of the hashes this table originally cited are reachable from `HEAD` any more (see [`IN-TREE.md`](IN-TREE.md) §2 for how they were remapped):
 
-| commit | subject |
+| commit (current) | subject |
 |---|---|
-| `204e63493b` | `test(windows): characterise phantom modifier re-press in serial key event server` |
-| `a26aa611b5` | `fix(windows): reconcile cached modifier state with the OS before injecting` |
-| `5274fec612` | `chore(windows): add a build entry point for the fakefreeze support tool` |
-| `78a0c22edc` | `test(windows): add manual test for the stuck modifier phantom KEYDOWN` |
+| `914795bf58` | `test(windows): characterise the serial key event server modifier cache` |
+| `4aff8fc10e` | `fix(windows): clear cached modifiers the OS reports up before injecting` |
+| `bbb22576c2` | `chore(windows): add a build entry point for the fakefreeze support tool` |
+| `b7971ec715` | `docs(windows): add the GH-8064 manual test, producer enumeration and triage` |
 
-The branch is **not pushed** and **no PR is open**; [#8064][i8064] has not been commented on. [MEETING-PREP.md](MEETING-PREP.md) is still the brief and the issue is still Ross's.
+**The branch is no longer four commits — it is 27**, after a ten-commit follow-on, a `host32`
+reproduction-harness round, and four more commits closing residual pathways found by a five-lens
+audit (see `IN-TREE.md` §2a). It is **still not pushed** and **no PR is open**, re-checked
+2026-08-27: the local tracking ref to the fork remote reports gone, and no branch of this name is
+visible there. [#8064][i8064] has not been commented on. [MEETING-PREP.md](MEETING-PREP.md) is still
+the brief and the issue is still Ross's.
 
 **Out of scope:** ~~the Cache A fix itself ([TODO D1/D2][todo] — repro and analysis only, per direction 2026-08-23)~~ — **SUPERSEDED by direction 2026-08-26**, which is that the fix was to be written, tested and made minimal. It has been: `a26aa611b5`, D1, 64 lines across 3 files. The original direction is left visible because it is why every document in this repo before [`IN-TREE.md`](IN-TREE.md) stops at analysis, and reading them without it makes them look incomplete rather than scoped. Still out of scope, unchanged: the Core API change (§5.4); any FieldWorks-based testing.
 

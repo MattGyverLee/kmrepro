@@ -370,4 +370,17 @@ Two notes for the PR text:
   is a stronger and simpler motivation for the resync than the hardware story,
   and it is defensible from source alone.
 
+### 11a. The mstsc pass-through race, named in §2a and §10.2, is now fixed — 2026-08-27
+
+§2a above already identified `mstsc`'s `dwExtraInfo=0x4321DCBA` as the source-verified injector that
+reaches the cache-feed post while being excluded from the pass-through filter — exactly the emitter
+population this document exists to describe. `IN-TREE.md` §2a records that the equivalent race —
+not this document's seed question, but the ordering race between a batch's own restore press and a
+real release passing through un-eaten under RDP, the touch panel, console focus, or a
+`GetGUIThreadInfo` failure — is now closed by a post-batch verification pass (`5ba72fa3c9`), unit-
+tested rather than reasoned about. **This does not settle §10 item 2 of this document** (confirming an
+unsided post survives to the cache with `dwExtraInfo != 0`, which is a claim about the *seed*, not
+about the *race*): that remains an open harness measurement, unrelated to whether the race is fixed.
+Do not read the race fix as resolving the seed question this document still owes.
+
 [i8064]: https://github.com/keymanapp/keyman/issues/8064

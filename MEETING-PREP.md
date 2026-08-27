@@ -75,7 +75,9 @@ Note the last row: this repo's own finding that the watchdog is not the mechanis
 | **I5 — does Cache A exist in the 64-bit engine?** | open, inference only | `serialkeyeventserver.cpp` is `#ifndef _WIN64`. Coverage claims depend on this |
 | **I12 — the latch set accumulates within a session** | open, 4 hypotheses killed | Not a timer, not focus-change resync. Only a new process cleared it. Do not offer a mechanism |
 | **The ARM64 leg of the fix is unbuilt** | open | No ARM64 MSVC libraries on the dev machine. `ReconcileModifierCache` has no architecture guard and the declaration sits outside the `_WIN64` region, so it should compile — but say "should", not "does". CI or an ARM64-toolset machine owes the answer. [`IN-TREE.md`](IN-TREE.md) §6 |
-| **The fix is preventive, not curative** | by design, and worth volunteering | It stops the latch forming; it cannot recover a process already latched, because by then the modifier is genuinely held and cache and OS agree. Offer this before a reviewer finds it. [`IN-TREE.md`](IN-TREE.md) §3 C-2 |
+| **The fix is preventive, not curative — mostly still true, 2026-08-27** | by design, and worth volunteering | It stops the latch forming; it cannot recover a process already latched, because by then the modifier is genuinely held and cache and OS agree. **Since qualified:** a post-batch verification pass (`5ba72fa3c9`) is genuinely curative for the narrower case of a race the batch's own restore press caused within that batch's lifetime — not for a wedge that formed earlier with no further Keyman-triggered batch to trigger the check. Offer both halves before a reviewer finds the second one. [`IN-TREE.md`](IN-TREE.md) §3 C-2, §2a |
+| **The OSK teardown fix is unverified; the live click-off path is deliberately unfixed** | open, worth volunteering | Delphi is not installed here, so `3d64aad790` has not compiled or run. Its own reverted sibling fix would have reintroduced the I2177 regression by recording physically-held modifiers as releasable. Say both before being asked. [`IN-TREE.md`](IN-TREE.md) §2a |
+| **The `host32` live re-run of producer rows 1 and 9 is still owed** | open | Both rows are marked mitigated in the current tree's `MODIFIER-PRODUCERS.md` but on source reasoning, not a re-run of the harness that measured the original 5/5-to-0/5 freeze reproduction. [`IN-TREE.md`](IN-TREE.md) §6 |
 | **One machine, one Windows build, one Keyman build** | — | Say it before they do |
 | **The summary table inside `logs/mods-prefix-latch-evidence.txt`** | stale | It is the pre-`self`-column version and shows the immune keys as "2/2 latched" from §2c residue. The per-trial lines above it are correct; quote [MODIFIERS.md] §2b rather than that table |
 | **I7 — hardware with no physical Right Ctrl** | partly answered | This dev machine *is* that class — on the user's report, corroborated by a wire capture that shows only `LCTRL` taps. Do not say "confirmed at the wire": no capture can prove a key is absent. Field hardware still owed |
@@ -114,15 +116,22 @@ Reordered 2026-08-26: three of the five original asks are now deliverables rathe
 requests, so lead with the review and keep the questions that are still open.
 
 1. Confirm **#8064 is the home** for this evidence.
-2. **Review the branch.** `fix/windows/8064-reconcile-modifier-cache`, four commits off upstream
+2. **Review the branch.** `fix/windows/8064-reconcile-modifier-cache`, off upstream
    `master` @ `deeff0456f`: the defect characterised in the `keyman32` gtest suite, the Cache A fix
-   ([TODO][todo] **D1**), a `build.sh` for [`fakefreeze`][ff] ([TEST-PLAN.md] **P0**), and a manual
-   test. `test:x86` 19/19, `test:x64` 18/18 — 33/33 and 32/32 after the follow-on
-   branch — both engine DLLs link clean; production diff is 64
-   lines across 3 files. Full record in [`IN-TREE.md`](IN-TREE.md).
-   - Volunteer the three judgement calls rather than waiting to be asked: registering
+   ([TODO][todo] **D1**), a `build.sh` for [`fakefreeze`][ff] ([TEST-PLAN.md] **P0**), a manual
+   test, a `host32` reproduction harness, and — most recently — four commits closing residual
+   pathways a five-lens audit found (the pass-through race, the eaten-event pipeline loss, and the
+   OSK teardown chirality collapse). **27 commits now, not four** — still not pushed, still no PR.
+   `test:x86` 72 pass, `test:x64` 71 pass, 1 disabled each — both engine DLLs link clean. Full record
+   in [`IN-TREE.md`](IN-TREE.md) §2 and §2a.
+   - Volunteer the judgement calls rather than waiting to be asked: registering
      `:fakefreeze` puts it in CI's path and the narrower alternative is one line away; the ARM64 leg
-     is unbuilt; and the fix is preventive, not curative.
+     is unbuilt; the fix is preventive for the general case, though a narrow batch-scoped curative
+     move has since landed for the case where a batch's own restore press outlives a race it caused
+     (`IN-TREE.md` §2a); and the OSK teardown fix is written but **unverified** — Delphi is not
+     installed here, so it has not compiled or run — while the OSK's live click-off path is
+     deliberately left unfixed, on the record, because the safe fix needs a Delphi compiler to land
+     without risking the I2177 regression.
 3. Ross's `test3_lowlevel.xlsx` timeline cross-checked against `logs/` — do his field logs and this
    repo's wire captures show the same event shape? **Still the highest-value open question**, because
    it is the nearest thing to a field trigger for **I3**.
